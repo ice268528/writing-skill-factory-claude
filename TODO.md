@@ -190,15 +190,20 @@
 
 11. **统一日志系统**：新建 `scripts/factory_logging.py` 统一结构化日志（JSON 文件 + 控制台人类可读），已接入全部 16 个脚本。`DEFAULT_LOG_DIR` 修正为基于文件位置推导的项目根目录路径，避免日志散落在运行目录。关键错误路径增加 `logger.error`/`logger.exception`，文件 I/O 操作增加异常捕获与日志记录。
 
-### 仍待验证/完善
+### 已验证/闭环（2026-04-21 后续验证）
 
 12. **正文生成**：`generate_article.py` 仍仅生成文件骨架与占位文本，实际文章由 Claude Code 调用 active child skill 完成，脚本本身不生成正文。（设计如此，未变更）
 13. **Claude Code 识别**：`/writer-test_writer` 已验证可在 Claude Code 中直接识别并调用，SKILL.md 内容完整加载。（验证时间：2026-04-21）
-14. **anti-patterns 自动扩充**：`promote_rules.py` 已增强 `_update_anti_patterns_from_revision()`，新增 `AI_PATTERN_TEMPLATES` 句型模板库（18 组正则模式），支持从 revision diff 中同时提取：
-    - **单个 AI 套路词汇**（如"值得注意的是""综上所述"）
-    - **AI 味句型模式**（如"在当今社会，...""随着...的发展，...""...的背后，是...""这不得不让人思考..."等）
-    - 词汇追加到 `anti-patterns.md` 的"高频 AI 味"区块，句型追加到"常见套路句"区块，均避免重复添加。
-    - 语法检查通过，单元测试（`_extract_ai_cliches` / `_extract_ai_patterns` / `_update_anti_patterns_from_revision`）全部通过，diff_classification 回归测试 7/7 通过。
+14. **anti-patterns 自动扩充**：`promote_rules.py` 已增强 `_update_anti_patterns_from_revision()`，新增 `AI_PATTERN_TEMPLATES` 句型模板库（18 组正则模式）。**端到端验证通过**：
+    - 在 baseline 中植入 8 组 AI 套路表达（"在当今社会"、"值得注意的是"、"随着...的发展"、"综上所述"、"这不得不让人思考"、"诚然"、"毫无疑问"、"从某种程度上说"）
+    - 用户在 visible draft 中全部删除并替换为自然表达
+    - 运行 `learn_pipeline.py` 后，sync → diff → promote 全链路成功检测
+    - `anti-patterns.md` 自动追加：词汇"值得注意的是"、句型"值得注意的是，...（AI旁观视角）""在当今社会，...（社会背景引入）""综上所述，...（模板化总结）""随着...的发展，...（趋势引入）"
+    - 单元测试与回归测试均通过
+
+### 已修复（本次验证中发现并修复）
+
+15. **`generate_article.py` manifest 缺少 `current_sha`**：`generate_article.py` 生成的初始 manifest 未包含 `current_sha` 字段，导致 `sync_visible_edits.py` 首次运行时无法检测用户编辑（条件 `manifest.get("current_sha")` 为假，永远跳过 edit 检测）。**已修复**：`generate_article.py` 在生成 manifest 时同步计算并写入 `visible_sha` 作为 `current_sha`，确保首次 sync 即可正确检测编辑。
 
 ---
 

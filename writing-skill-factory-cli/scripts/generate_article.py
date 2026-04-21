@@ -126,11 +126,13 @@ status: drafted
     visible_path.write_text(visible_content, encoding="utf-8")
 
     # 生成 manifest
+    visible_sha = compute_sha(visible_content)
     manifest = {
         "article_id": article_id,
         "child_name": f"writer-{child_name}",
         "child_version": version,
         "baseline_sha": baseline_sha,
+        "current_sha": visible_sha,
         "created_at": now.isoformat(),
         "topic": topic,
         "status": "drafted",
