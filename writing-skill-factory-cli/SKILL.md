@@ -69,13 +69,17 @@ Phase 8: 发布到 `.claude/skills/writer-<child-name>/`
 
 ### learn-from-visible-edits
 
+统一入口：`scripts/learn_pipeline.py`
+
 1. 扫描 visible 目录变动（增删改）
-2. 同步映射回 canonical repo
+2. 同步映射回 canonical repo（含自动 git commit）
 3. diff baseline vs 用户修改稿
 4. 分类 revision signals（L1 Cosmetic / L2 Reusable Preference / L3 Structural Rule）
 5. 规则升级（candidate → probation → active）
-6. 生成 candidate 版本
+6. 生成 candidate 版本（`scripts/generate_candidate.py`）
 7. 触发 evaluate-candidate
+
+支持 `--dry-run` 预览、`--article-id` 指定单篇文章、`--skip-eval` 跳过评估。
 
 ### evaluate-candidate
 
@@ -127,5 +131,7 @@ Phase 8: 发布到 `.claude/skills/writer-<child-name>/`
 - `scripts/diff_revision.py` — 分析 baseline 与用户修改稿差异
 - `scripts/promote_rules.py` — revision signals 提升为 candidate/probation/active 规则
 - `scripts/eval_candidate.py` — old vs candidate 评估并生成报告
+- `scripts/generate_candidate.py` — 从 canonical repo 生成 candidate 版本（填补 P1 链路断点）
+- `scripts/learn_pipeline.py` — **统一 learn 流程入口**（sync → diff → promote → candidate → eval）
 - `scripts/publish_child.py` — canonical skill → active child 发布
 - `scripts/rollback_child.py` — 从 release 恢复并重新发布

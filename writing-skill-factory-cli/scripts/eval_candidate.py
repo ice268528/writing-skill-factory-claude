@@ -9,9 +9,120 @@ eval_candidate.py
 
 import argparse
 import json
+import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+
+def run_git_show(repo_dir: Path, tag: str, file_path: str) -> str:
+    """从 git tag 读取文件内容"""
+    try:
+        result = subprocess.run(
+            ["git", "show", f"{tag}:{file_path}"],
+            cwd=repo_dir,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout
+    except subprocess.CalledProcessError:
+        return ""
+
+
+def read_current_file(skill_dir: Path, file_path: str) -> str:
+    """读取当前 skill 目录中的文件"""
+    try:
+        return (skill_dir / file_path).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ""
+
+
+def parse_style_memory(text: str) -> dict:
+    """解析 style-memory.json 文本"""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return {}
+
+
+def compute_style_fit(baseline_memory: dict, candidate_memory: dict) -> float:
+    """计算风格贴合度得分（0-5）"""
+    base_traits = {t.get("trait"): t.get("value") for t in baseline_memory.get("voice_traits", [])}
+    cand_traits = {t.get("trait"): t.get("value") for t in candidate_memory.get("voice_traits", [])}
+
+    if not base_traits or not cand_traits:
+        return 3.0
+
+    matches = 0
+    total = 0
+    for trait, base_val in base_traits.items():
+        total += 1
+        if cand_traits.get(trait) == base_val:
+            matches += 1
+
+    # punctuation preferences 对比
+    base_punct = {p.get("mark"): p.get("density_per_1k") for p in baseline_memory.get("punctuation_preferences", [])}
+    cand_punct = {p.get("mark"): p.get("density_per_1k") for p in candidate_memory.get("punctuation_preferences", [])}
+    if base_punct and cand_punct:
+        punct_matches = 0
+        punct_total = 0
+        for mark, base_density in base_punct.items():
+            punct_total += 1
+            cand_density = cand_punct.get(mark)
+            if cand_density is not None:
+                # 允许 20% 的误差
+                if abs(base_density - cand_density) / max(base_density, 0.01) < 0.2:
+                    punct_matches += 1
+        total += punct_total
+        matches += punct_matches
+
+    if total == 0:
+        return 3.0
+
+    ratio = matches / total
+    # 映射到 0-5 分
+    if ratio >= 0.9:
+        return 5.0
+    elif ratio >= 0.7:
+        return 4.0
+    elif ratio >= 0.5:
+        return 3.0
+    elif ratio >= 0.3:
+        return 2.0
+    else:
+        return 1.0
+
+
+def compute_boundary_control(skill_dir: Path) -> float:
+    """计算边界控制得分（0-5），基于规则文件完整性"""
+    boundary_path = skill_dir / "references" / "author-boundary.md"
+    anti_path = skill_dir / "references" / "anti-patterns.md"
+
+    score = 0.0
+    if boundary_path.exists():
+        text = boundary_path.read_text(encoding="utf-8")
+        # 统计 "##" 或 "###" 标题数作为规则区块数
+        sections = len(re.findall(r'^#{2,3}\s', text, re.MULTILINE))
+        if sections >= 4:
+            score += 2.5
+        elif sections >= 2:
+            score += 1.5
+        else:
+            score += 0.5
+
+    if anti_path.exists():
+        text = anti_path.read_text(encoding="utf-8")
+        sections = len(re.findall(r'^#{2,3}\s', text, re.MULTILINE))
+        if sections >= 3:
+            score += 2.5
+        elif sections >= 1:
+            score += 1.5
+        else:
+            score += 0.5
+
+    return min(score, 5.0)
 
 
 def eval_candidate(child_name: str, factory_dir: str) -> dict:
@@ -31,6 +142,7 @@ def eval_candidate(child_name: str, factory_dir: str) -> dict:
     # 查找最新 candidate
     candidates_dir = state_dir / "candidates"
     candidate_version = None
+    candidate_manifest = None
     if candidates_dir.exists():
         candidates = sorted(candidates_dir.glob("v*.json"))
         if candidates:
@@ -59,20 +171,74 @@ def eval_candidate(child_name: str, factory_dir: str) -> dict:
 
     structure_avg = sum(structure_scores.values()) / len(structure_scores)
 
-    # 效果维度评估（需要人工/测试，此处生成框架）
+    # 效果维度评估（部分自动化 + 部分需人工）
+    # 自动化部分
+    baseline_tag = f"v{current_version}"
+    baseline_memory_text = run_git_show(repo_dir, baseline_tag, "skill/assets/style-memory.json")
+    baseline_memory = parse_style_memory(baseline_memory_text)
+    candidate_memory = parse_style_memory(read_current_file(skill_dir, "assets/style-memory.json"))
+
+    style_fit_score = compute_style_fit(baseline_memory, candidate_memory)
+    boundary_score = compute_boundary_control(skill_dir)
+
+    # 半自动/人工部分（提供检查清单和指引）
     effect_scores = {
-        "style_fit": "[待测试：与样文对比风格贴合度]",
-        "human_feel": "[待测试：活人感评估]",
-        "long_form_drive": "[待测试：长文推进力]",
-        "ai_taste_reduction": "[待测试：AI 味减少程度]",
-        "boundary_control": "[待测试：作者边界控制]",
-        "topic_judgment": "[待测试：选题判断准确性]",
-        "info_sufficiency": "[待测试：信息充足性处理]",
+        "style_fit": round(style_fit_score, 1),
+        "human_feel": {
+            "score": None,
+            "auto_note": "需人工评估",
+            "checklist": [
+                "生成文章是否避免 AI 套路句？",
+                "句子是否有自然的停顿与呼吸感？",
+                "段落过渡是否生硬？",
+            ]
+        },
+        "long_form_drive": {
+            "score": None,
+            "auto_note": "需人工评估",
+            "checklist": [
+                "2000 字以上文章是否能保持推进力？",
+                "中段是否出现信息塌陷或重复？",
+                "结尾是否与开头形成有效呼应？",
+            ]
+        },
+        "ai_taste_reduction": {
+            "score": None,
+            "auto_note": "需人工评估",
+            "checklist": [
+                "是否存在 '在当今社会'、'综上所述' 等套路？",
+                "是否有过度总结或空泛收束？",
+                "人称使用是否与样文一致？",
+            ]
+        },
+        "boundary_control": round(boundary_score, 1),
+        "topic_judgment": {
+            "score": None,
+            "auto_note": "需人工评估",
+            "checklist": [
+                "对劣质选题是否能明确拒绝并说明原因？",
+                "对信息不足的情况是否会追问而非强行生成？",
+                "选题判断是否符合作者的真实偏好？",
+            ]
+        },
+        "info_sufficiency": {
+            "score": None,
+            "auto_note": "需人工评估",
+            "checklist": [
+                "信息不足时是否列出具体补充项？",
+                "是否在信息有限时仍强行编造？",
+                "对素材的利用是否充分？",
+            ]
+        },
     }
 
-    # 总分（效果维度暂按占位平均 3.0 计算）
-    effect_placeholder_avg = 3.0
-    total_score = round(structure_avg * 0.3 + effect_placeholder_avg * 0.7, 2)
+    # 效果维度平均分（自动化得分 + 占位符按 3.0 计算）
+    auto_scores = [v for k, v in effect_scores.items() if isinstance(v, (int, float))]
+    placeholder_count = len(effect_scores) - len(auto_scores)
+    placeholder_avg = 3.0
+    effect_avg = (sum(auto_scores) + placeholder_count * placeholder_avg) / len(effect_scores)
+
+    total_score = round(structure_avg * 0.3 + effect_avg * 0.7, 2)
 
     report = {
         "eval_id": f"eval-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}",
@@ -86,11 +252,18 @@ def eval_candidate(child_name: str, factory_dir: str) -> dict:
         },
         "effect_dimension": {
             "scores": effect_scores,
-            "average": effect_placeholder_avg,
-            "note": "效果维度需通过实际生成文章进行人工或半自动评估",
+            "average_auto": round(sum(auto_scores) / len(auto_scores), 2) if auto_scores else 0,
+            "average_with_placeholders": round(effect_avg, 2),
+            "auto_evaluated": ["style_fit", "boundary_control"],
+            "manual_required": ["human_feel", "long_form_drive", "ai_taste_reduction", "topic_judgment", "info_sufficiency"],
+            "note": "效果维度中 style_fit 与 boundary_control 已自动评估；其余需运行测试 prompts 并人工评分。",
         },
         "total_score": total_score,
-        "recommendation": "请运行测试 prompts 并人工评估效果维度后，再决定 publish 或 revise",
+        "recommendation": (
+            "结构维度通过。效果维度中，"
+            f"style_fit={style_fit_score:.1f}、boundary_control={boundary_score:.1f} 已自动计算。"
+            "请运行测试 prompts 并人工评估剩余维度后，再决定 publish 或 revise。"
+        ),
         "missing_files": missing,
     }
 
@@ -118,13 +291,22 @@ def eval_candidate(child_name: str, factory_dir: str) -> dict:
         "",
         "## 效果维度",
         "",
-        f"平均分：{effect_placeholder_avg:.2f} / 5.0（占位）",
+        f"自动评估平均分：{report['effect_dimension']['average_auto']:.2f} / 5.0",
+        f"含占位符平均分：{report['effect_dimension']['average_with_placeholders']:.2f} / 5.0",
         "",
-        "| 子维度 | 得分 |",
-        "|--------|------|",
+        "| 子维度 | 得分 | 类型 |",
+        "|--------|------|------|",
     ])
     for k, v in effect_scores.items():
-        lines.append(f"| {k} | {v} |")
+        if isinstance(v, dict):
+            lines.append(f"| {k} | [待人工评分] | 人工 |")
+            lines.append("")
+            lines.append("**检查清单**：")
+            for item in v.get("checklist", []):
+                lines.append(f"- [ ] {item}")
+            lines.append("")
+        else:
+            lines.append(f"| {k} | {v} | 自动 |")
 
     lines.extend([
         "",
