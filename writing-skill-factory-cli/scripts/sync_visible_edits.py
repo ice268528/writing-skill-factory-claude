@@ -14,6 +14,8 @@ import re
 import sys
 from pathlib import Path
 
+from factory_logging import setup_logger, LogContext
+
 
 def compute_sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
@@ -25,6 +27,7 @@ def extract_article_id(content: str) -> str | None:
 
 
 def sync_visible_edits(child_name: str, factory_dir: str, project_root: str) -> dict:
+    logger = setup_logger(__name__, child_name=child_name)
     root = Path(project_root).resolve()
     articles_dir = root / f"{child_name}_Generated_Articles"
     manifest_dir = articles_dir / ".manifest"

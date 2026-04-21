@@ -16,6 +16,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from factory_logging import LogContext, setup_logger
+
+logger = setup_logger("publish_child")
+
 
 def publish_child(child_name: str, factory_dir: str, skills_dir: str) -> None:
     repo_dir = Path(factory_dir) / child_name / "repo"
@@ -23,7 +27,7 @@ def publish_child(child_name: str, factory_dir: str, skills_dir: str) -> None:
     state_dir = repo_dir / "state"
 
     if not skill_src.exists():
-        print(f"[publish_child] Error: canonical skill not found at {skill_src}")
+        logger.error("Canonical skill not found at %s", skill_src)
         sys.exit(1)
 
     # 读取当前版本
@@ -85,7 +89,7 @@ def publish_child(child_name: str, factory_dir: str, skills_dir: str) -> None:
         existing = changelog_path.read_text(encoding="utf-8")
         changelog_path.write_text(existing + log_entry, encoding="utf-8")
 
-    print(f"[publish_child] Published writer-{child_name} v{version} to {dest_dir}")
+    logger.info("Published writer-%s v%s to %s", child_name, version, dest_dir)
 
 
 def main() -> int:
@@ -94,7 +98,13 @@ def main() -> int:
     parser.add_argument("--factory-dir", default=".claude/writing-factory/children", help="Factory base dir")
     parser.add_argument("--skills-dir", default=".claude/skills", help="Claude skills dir")
     args = parser.parse_args()
-    publish_child(args.child_name, args.factory_dir, args.skills_dir)
+
+    with LogContext(logger, child_name=args.child_name, step="publish"):
+        try:
+            publish_child(args.child_name, args.factory_dir, args.skills_dir)
+        except Exception as e:
+            logger.exception("Publish failed for %s: %s", args.child_name, e)
+            return 1
     return 0
 
 

@@ -15,6 +15,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from factory_logging import setup_logger, LogContext
+
 
 def run_git_show(repo_dir: Path, tag: str, file_path: str) -> str:
     """从 git tag 读取文件内容"""
@@ -126,6 +128,7 @@ def compute_boundary_control(skill_dir: Path) -> float:
 
 
 def eval_candidate(child_name: str, factory_dir: str) -> dict:
+    logger = setup_logger(__name__, child_name=child_name)
     repo_dir = Path(factory_dir) / child_name / "repo"
     state_dir = repo_dir / "state"
     skill_dir = repo_dir / "skill"

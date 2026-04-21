@@ -14,6 +14,8 @@ import re
 import sys
 from pathlib import Path
 
+from factory_logging import setup_logger, LogContext
+
 
 def _is_punctuation_only(old_text: str, new_text: str) -> bool:
     """检测是否仅标点/空格/换行变化"""
@@ -76,6 +78,17 @@ def classify_change(old_text: str, new_text: str, context: str) -> dict:
     similarity = _compute_similarity(old_text, new_text)
 
     # --------------------------------------------------------------
+    # 前置分析：段落功能（必须在 L1 前，避免 heading/opening/conclusion 被高相似度淹没）
+    # --------------------------------------------------------------
+    old_func = _detect_paragraph_function(old_text)
+    new_func = _detect_paragraph_function(new_text)
+
+    # 标题/小标题变更：无论相似度多高，只要 heading 标记变化即为 L3
+    if old_func == "heading" or new_func == "heading":
+        if old_text.strip() != new_text.strip():
+            return {"level": "L3", "type": "structural", "reason": "标题层级或内容变更"}
+
+    # --------------------------------------------------------------
     # L1: 表层 cosmetic（相似度极高，或仅标点/助词变化）
     # --------------------------------------------------------------
     if similarity >= 0.92:
@@ -90,11 +103,6 @@ def classify_change(old_text: str, new_text: str, context: str) -> dict:
     if abs(delta) < 15 and similarity >= 0.85:
         return {"level": "L1", "type": "cosmetic", "reason": "局部同义词/语序微调"}
 
-    # --------------------------------------------------------------
-    # 前置分析：段落功能
-    # --------------------------------------------------------------
-    old_func = _detect_paragraph_function(old_text)
-    new_func = _detect_paragraph_function(new_text)
 
     # --------------------------------------------------------------
     # L3: 结构性变化
@@ -149,6 +157,7 @@ def classify_change(old_text: str, new_text: str, context: str) -> dict:
 
 
 def diff_revision(child_name: str, article_id: str, factory_dir: str, project_root: str) -> dict:
+    logger = setup_logger(__name__, child_name=child_name)
     root = Path(project_root).resolve()
     repo_dir = Path(factory_dir) / child_name / "repo"
     state_dir = repo_dir / "state"
@@ -159,14 +168,20 @@ def diff_revision(child_name: str, article_id: str, factory_dir: str, project_ro
     visible_dir = root / f"{child_name}_Generated_Articles"
     visible_files = list(visible_dir.glob(f"{article_id}__*.md"))
     if not visible_files:
+        logger.error("Visible file not found for %s", article_id)
         return {"status": "error", "message": f"Visible file not found for {article_id}"}
     visible_file = visible_files[0]
 
     if not baseline_file.exists():
+        logger.error("Baseline not found for %s", article_id)
         return {"status": "error", "message": f"Baseline not found for {article_id}"}
 
-    baseline_text = baseline_file.read_text(encoding="utf-8")
-    visible_text = visible_file.read_text(encoding="utf-8")
+    try:
+        baseline_text = baseline_file.read_text(encoding="utf-8")
+        visible_text = visible_file.read_text(encoding="utf-8")
+    except Exception:
+        logger.exception("Failed to read files for %s", article_id)
+        return {"status": "error", "message": f"Failed to read files for {article_id}"}
 
     # 移除 frontmatter 进行对比
     def strip_frontmatter(text: str) -> str:
@@ -223,7 +238,11 @@ def diff_revision(child_name: str, article_id: str, factory_dir: str, project_ro
     # 保存 revision 记录
     revisions_dir.mkdir(parents=True, exist_ok=True)
     rev_file = revisions_dir / f"{article_id}.json"
-    rev_file.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    try:
+        rev_file.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        logger.info("Revision saved to %s", rev_file)
+    except Exception:
+        logger.exception("Failed to save revision to %s", rev_file)
 
     return result
 

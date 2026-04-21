@@ -14,6 +14,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from factory_logging import setup_logger, LogContext
+
 
 def _abstract_rule_description(level: str, rule_type: str, removed: str, added: str, reason: str) -> str:
     """
@@ -96,6 +98,7 @@ def _abstract_rule_description(level: str, rule_type: str, removed: str, added: 
 
 
 def promote_rules(child_name: str, article_id: str, factory_dir: str) -> dict:
+    logger = setup_logger(__name__, child_name=child_name)
     repo_dir = Path(factory_dir) / child_name / "repo"
     state_dir = repo_dir / "state"
     revisions_dir = state_dir / "revisions"

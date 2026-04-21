@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+from factory_logging import setup_logger, LogContext
+
 # 14 维分析框架键名
 DIMENSIONS = [
     "sentence_length", "paragraph_length", "paragraph_structure",
@@ -472,9 +474,10 @@ def extract_narrative_moves(text: str) -> List[Dict]:
 # 主流程
 # ---------------------------------------------------------------------------
 def build_style_profile(child_name: str, samples_dir: str, factory_dir: str) -> None:
+    logger = setup_logger(__name__, child_name=child_name)
     samples = read_samples(samples_dir)
     if not samples:
-        print(f"[build_style_profile] No samples found in {samples_dir}")
+        logger.error("No samples found in %s", samples_dir)
         sys.exit(1)
 
     all_text = "\n\n".join([t for _, t in samples])
@@ -755,9 +758,9 @@ def build_style_profile(child_name: str, samples_dir: str, factory_dir: str) -> 
     }
     profile_path.write_text(json.dumps(profile_data, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print(f"[build_style_profile] Style profile saved to {style_profile_path}")
-    print(f"[build_style_profile] Style memory saved to {memory_path}")
-    print(f"[build_style_profile] Examples saved to {examples_path}")
+    logger.info("Style profile saved to %s", style_profile_path)
+    logger.info("Style memory saved to %s", memory_path)
+    logger.info("Examples saved to %s", examples_path)
 
 
 def main() -> int:

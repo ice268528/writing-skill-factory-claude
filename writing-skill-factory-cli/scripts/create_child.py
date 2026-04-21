@@ -16,6 +16,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from factory_logging import LogContext, setup_logger
+
+logger = setup_logger("create_child")
+
 # 默认输出基目录（相对于项目根）
 DEFAULT_FACTORY_DIR = ".claude/writing-factory/children"
 
@@ -224,9 +228,9 @@ def create_child(child_name: str, samples_dir: str, factory_base: str) -> Path:
     ])
     summary_path.write_text("\n".join(summary_lines), encoding="utf-8")
 
-    print(f"[create_child] Canonical repo created at: {repo_dir}")
-    print(f"[create_child] Child skill skeleton ready: {skill_dir}")
-    print(f"[create_child] Create summary: {summary_path}")
+    logger.info("Canonical repo created at: %s", repo_dir)
+    logger.info("Child skill skeleton ready: %s", skill_dir)
+    logger.info("Create summary: %s", summary_path)
     return repo_dir
 
 
@@ -241,8 +245,13 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    repo_dir = create_child(args.child_name, args.samples_dir, args.factory_dir)
-    print(repo_dir)
+    with LogContext(logger, child_name=args.child_name, step="create"):
+        try:
+            repo_dir = create_child(args.child_name, args.samples_dir, args.factory_dir)
+            print(repo_dir)
+        except Exception as e:
+            logger.exception("Failed to create child %s: %s", args.child_name, e)
+            return 1
     return 0
 
 

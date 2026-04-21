@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+from factory_logging import setup_logger, LogContext
+
 
 def read_samples(samples_dir: str) -> List[Tuple[str, str]]:
     path = Path(samples_dir)
@@ -199,9 +201,10 @@ def infer_boundary(texts: List[str]) -> Dict:
 
 
 def build_cognitive_profile(child_name: str, samples_dir: str, factory_dir: str) -> None:
+    logger = setup_logger(__name__, child_name=child_name)
     samples = read_samples(samples_dir)
     if not samples:
-        print(f"[build_cognitive_profile] No samples found in {samples_dir}")
+        logger.error("No samples found in %s", samples_dir)
         sys.exit(1)
 
     texts = [t for _, t in samples]
@@ -379,9 +382,9 @@ def build_cognitive_profile(child_name: str, samples_dir: str, factory_dir: str)
 
     memory_path.write_text(json.dumps(memory, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print(f"[build_cognitive_profile] Editorial rules saved to {editorial_path}")
-    print(f"[build_cognitive_profile] Author boundary saved to {boundary_path}")
-    print(f"[build_cognitive_profile] Anti-patterns saved to {anti_path}")
+    logger.info("Editorial rules saved to %s", editorial_path)
+    logger.info("Author boundary saved to %s", boundary_path)
+    logger.info("Anti-patterns saved to %s", anti_path)
 
 
 def main() -> int:

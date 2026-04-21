@@ -19,6 +19,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from factory_logging import setup_logger, LogContext
+
 
 def generate_article_id() -> str:
     now = datetime.now(timezone.utc)
@@ -55,6 +57,7 @@ def sanitize_topic(topic: str) -> str:
 
 
 def generate_article(child_name: str, topic: str, factory_dir: str, project_root: str) -> dict:
+    logger = setup_logger(__name__, child_name=child_name)
     import re
 
     root = Path(project_root).resolve()
@@ -141,9 +144,9 @@ status: drafted
     state_manifest_path = manifests_dir / f"{article_id}.json"
     state_manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    print(f"[generate_article] Article structure prepared: {article_id}")
-    print(f"[generate_article] Baseline: {baseline_path}")
-    print(f"[generate_article] Visible:  {visible_path}")
+    logger.info("Article structure prepared: %s", article_id)
+    logger.info("Baseline: %s", baseline_path)
+    logger.info("Visible: %s", visible_path)
 
     return manifest
 

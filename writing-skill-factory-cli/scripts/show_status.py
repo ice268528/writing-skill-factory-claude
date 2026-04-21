@@ -12,6 +12,10 @@ import json
 import sys
 from pathlib import Path
 
+from factory_logging import LogContext, setup_logger
+
+logger = setup_logger("show_status")
+
 
 def show_status(child_name: str, factory_dir: str) -> dict:
     repo_dir = Path(factory_dir) / child_name / "repo"
@@ -183,11 +187,16 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="Output raw JSON")
     args = parser.parse_args()
 
-    status = show_status(args.child_name, args.factory_dir)
-    if args.json:
-        print(json.dumps(status, ensure_ascii=False, indent=2))
-    else:
-        print_status(status)
+    with LogContext(logger, child_name=args.child_name, step="status"):
+        try:
+            status = show_status(args.child_name, args.factory_dir)
+            if args.json:
+                print(json.dumps(status, ensure_ascii=False, indent=2))
+            else:
+                print_status(status)
+        except Exception as e:
+            logger.exception("Show status failed for %s: %s", args.child_name, e)
+            return 1
     return 0
 
 

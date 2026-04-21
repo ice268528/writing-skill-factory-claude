@@ -15,12 +15,17 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from factory_logging import LogContext, setup_logger
+
+logger = setup_logger("rollback_child")
+
 
 def rollback_child(child_name: str, version: str, factory_dir: str, skills_dir: str) -> dict:
     repo_dir = Path(factory_dir) / child_name / "repo"
     state_dir = repo_dir / "state"
 
     if not repo_dir.exists():
+        logger.error("Repo not found for %s", child_name)
         return {"status": "error", "message": f"Repo not found for {child_name}"}
 
     tag = f"v{version}"
@@ -34,6 +39,7 @@ def rollback_child(child_name: str, version: str, factory_dir: str, skills_dir: 
             capture_output=True,
         )
     except subprocess.CalledProcessError as e:
+        logger.error("Failed to checkout %s: %s", tag, e)
         return {"status": "error", "message": f"Failed to checkout {tag}: {e.stderr.decode() if e.stderr else str(e)}"}
 
     # 更新 active_version
@@ -97,8 +103,15 @@ def main() -> int:
     parser.add_argument("--skills-dir", default=".claude/skills", help="Claude skills dir")
     args = parser.parse_args()
 
-    result = rollback_child(args.child_name, args.version, args.factory_dir, args.skills_dir)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    with LogContext(logger, child_name=args.child_name, step="rollback"):
+        try:
+            result = rollback_child(args.child_name, args.version, args.factory_dir, args.skills_dir)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            if result.get("status") == "error":
+                return 1
+        except Exception as e:
+            logger.exception("Rollback failed for %s: %s", args.child_name, e)
+            return 1
     return 0
 
 

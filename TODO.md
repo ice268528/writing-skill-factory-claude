@@ -128,20 +128,20 @@
 ### 13. 评估体系深化
 - [x] 完善 `references/eval-rubric.md`
 - [x] 细化 `assets/quality-rubric.json` 评分标准 —— **效果维度已实现部分自动化（style_fit、boundary_control）**
-- [ ] 增加更多自动化回归测试场景
+- [x] 增加更多自动化回归测试场景 —— **新建 `scripts/run_regression_tests.py`，覆盖结构完整性、style-memory schema、规则有效性、diff 分类准确性、promote 去重、eval 分数范围、pipeline dry-run、manifest 完整性 8 大场景，已在 test_writer 上验证 8/8 通过**
 - [x] 完善 `evals/evals.json`（素材成稿类、风格迁移类、边界判断类）—— **模板框架已存在**
 
 ### 14. examples 与 anti-patterns 维护
 - [x] 建立 examples 更新机制 —— **build_style_profile.py 已从样文自动提取 few-shot 并生成 examples.md**
 - [x] 建立 anti-patterns 扩充机制（从 diff 中识别高频 AI 味）—— **promote_rules.py 已集成 `_update_anti_patterns_from_revision()`，自动从 revision 中提取用户删除的 AI 套路词并追加到 anti-patterns.md，避免重复添加**
-- [ ] 定期（或触发式）清理过时/低置信度规则
+- [x] 定期（或触发式）清理过时/低置信度规则 —— **新建 `scripts/prune_rules.py`，支持 candidate 低 evidence 清理、去重合并、劣质自动生成规则删除、probation 降级、active 合并，已集成到 test_writer 验证**
 
 ### 15. 父 skill 完善
 - [x] **实现 `scripts/learn_pipeline.py` 作为统一入口** —— 覆盖 sync → diff → promote → candidate → eval 全链路
 - [x] 实现 `status` 指令展示当前 child 状态 —— **新建 `scripts/show_status.py`，展示 release、candidate、rules、learning、articles、evals 六大板块**
 - [x] 完善 `references/update-policy.md`
 - [x] 完善 `references/version-policy.md`
-- [ ] 增加错误处理与边界 case 日志 —— **各脚本仅有基础错误处理（exit(1)），无统一日志系统**
+- [x] 增加错误处理与边界 case 日志 —— **新建 `scripts/factory_logging.py` 统一结构化日志（JSON 文件 + 控制台人类可读），已集成到全部 15 个业务脚本：`create_child.py`、`learn_pipeline.py`、`publish_child.py`、`generate_candidate.py`、`rollback_child.py`、`show_status.py`、`prune_rules.py`、`run_regression_tests.py`、`build_style_profile.py`、`build_cognitive_profile.py`、`diff_revision.py`、`eval_candidate.py`、`generate_article.py`、`sync_visible_edits.py`、`promote_rules.py`；关键步骤增加 try/except 与异常记录**
 
 ---
 
@@ -186,12 +186,15 @@
 9. **status 脚本**：新建 `scripts/show_status.py`，支持 `--json` 输出和人类可读表格，展示 release、candidate、rules、learning、articles、evals 状态。
 10. **publish 版本同步**：`publish_child.py` 发布时自动更新 `SKILL.md` 中的版本号声明，避免 active skill 与 release-index 版本不一致。
 
+### 本次推进（2026-04-21 后续）续
+
+11. **统一日志系统**：新建 `scripts/factory_logging.py` 统一结构化日志（JSON 文件 + 控制台人类可读），已接入全部 16 个脚本。`DEFAULT_LOG_DIR` 修正为基于文件位置推导的项目根目录路径，避免日志散落在运行目录。关键错误路径增加 `logger.error`/`logger.exception`，文件 I/O 操作增加异常捕获与日志记录。
+
 ### 仍待验证/完善
 
-11. **正文生成**：`generate_article.py` 仍仅生成文件骨架与占位文本，实际文章由 Claude Code 调用 active child skill 完成，脚本本身不生成正文。（设计如此，未变更）
-12. **Claude Code 识别**：`/writer-test_writer` 已验证可在 Claude Code 中直接识别并调用，SKILL.md 内容完整加载。（验证时间：2026-04-21）
-13. **anti-patterns 自动扩充**：`promote_rules.py` 已集成 `_update_anti_patterns_from_revision()`，从 revision diff 中自动提取用户删除的 AI 套路词并追加到 `anti-patterns.md`，避免重复。但尚未建立从 diff 中识别"高频 AI 味句型"（而非单纯词汇）的机制。（P2 可深化）
-14. **统一日志系统**：各脚本仅有基础错误处理（exit(1)），无统一日志系统与结构化日志输出。（P2 需求）
+12. **正文生成**：`generate_article.py` 仍仅生成文件骨架与占位文本，实际文章由 Claude Code 调用 active child skill 完成，脚本本身不生成正文。（设计如此，未变更）
+13. **Claude Code 识别**：`/writer-test_writer` 已验证可在 Claude Code 中直接识别并调用，SKILL.md 内容完整加载。（验证时间：2026-04-21）
+14. **anti-patterns 自动扩充**：`promote_rules.py` 已集成 `_update_anti_patterns_from_revision()`，从 revision diff 中自动提取用户删除的 AI 套路词并追加到 `anti-patterns.md`，避免重复。但尚未建立从 diff 中识别"高频 AI 味句型"（而非单纯词汇）的机制。（P2 可深化）
 
 ---
 

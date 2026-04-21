@@ -14,6 +14,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from factory_logging import LogContext, setup_logger
+
+logger = setup_logger("generate_candidate")
+
 
 def bump_version(current_version: str, existing_versions: list[str]) -> str:
     """自动递增 patch 版本号，避开已存在的版本。"""
@@ -170,9 +174,9 @@ def generate_candidate(child_name: str, factory_dir: str) -> dict:
             check=True,
             capture_output=True,
         )
-        print(f"[generate_candidate] Committed and tagged {tag}")
+        logger.info("Committed and tagged %s", tag)
     except subprocess.CalledProcessError as e:
-        print(f"[generate_candidate] Warning: git commit/tag failed: {e}")
+        logger.warning("Git commit/tag failed: %s", e)
         # 如果 commit 失败（比如没有变更），仍然保留 manifest 但标记为 dirty
         candidate_manifest["git_dirty"] = True
         candidate_path.write_text(json.dumps(candidate_manifest, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -208,9 +212,9 @@ def generate_candidate(child_name: str, factory_dir: str) -> dict:
         existing = "# Change Log\n"
     changelog_path.write_text(existing + log_entry, encoding="utf-8")
 
-    print(f"[generate_candidate] Candidate v{new_version} generated for {child_name}")
-    print(f"[generate_candidate] Manifest: {candidate_path}")
-    print(f"[generate_candidate] Change log: {changelog_path}")
+    logger.info("Candidate v%s generated for %s", new_version, child_name)
+    logger.info("Manifest: %s", candidate_path)
+    logger.info("Change log: %s", changelog_path)
 
     return candidate_manifest
 
@@ -221,8 +225,13 @@ def main() -> int:
     parser.add_argument("--factory-dir", default=".claude/writing-factory/children", help="Factory base dir")
     args = parser.parse_args()
 
-    result = generate_candidate(args.child_name, args.factory_dir)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    with LogContext(logger, child_name=args.child_name, step="generate_candidate"):
+        try:
+            result = generate_candidate(args.child_name, args.factory_dir)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        except Exception as e:
+            logger.exception("Generate candidate failed for %s: %s", args.child_name, e)
+            return 1
     return 0
 
 
