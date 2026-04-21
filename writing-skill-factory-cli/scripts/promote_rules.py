@@ -200,9 +200,65 @@ def promote_rules(child_name: str, article_id: str, factory_dir: str) -> dict:
     return {"status": "promoted", "promoted": promoted}
 
 
+# AI 套路句型模板库：(正则模式, 模板描述)
+# 正则使用非贪婪匹配 .*? 以适配具体变体
+AI_PATTERN_TEMPLATES = [
+    # 社会背景型
+    (r"在当今社会[，,].*?[。！？]", "在当今社会，...（社会背景引入）"),
+    (r"随着.*?的?发展[，,].*?[。！？]", "随着...的发展，...（趋势引入）"),
+    (r"在.*?的背景下[，,].*?[。！？]", "在...的背景下，...（背景铺垫）"),
+    # 思考引导型
+    (r"这是一个值得深思的问题[。，,]?", "这是一个值得深思的问题。（强行升华）"),
+    (r"这?不得不让人思考.*?[。！？]", "这不得不让人思考...（强行升华）"),
+    (r"从某种程度上说[，,].*?[。！？]", "从某种程度上说，...（模糊表态）"),
+    # 全面性伪装型
+    (r"无论是.*?还是.*?[，,].*?[。！？]", "无论是A还是B，...（虚假全面）"),
+    (r".*?的背后[，,]是.*?[。！？]", "...的背后，是...（过度归因）"),
+    # 总结收束型
+    (r"总而言之[，,].*?[。！？]", "总而言之，...（模板化总结）"),
+    (r"综上所述[，,].*?[。！？]", "综上所述，...（模板化总结）"),
+    (r"不仅如此[，,].*?[。！？]", "不仅如此，...（递进模板）"),
+    # 号召型
+    (r"让我们一起.*?[吧!！。]", "让我们一起...（空洞号召）"),
+    (r"相信未来.*?[吧!！。]", "相信未来...（空洞号召）"),
+    # 断言型
+    (r"毫无疑问[，,].*?[。！？]", "毫无疑问，...（绝对化断言）"),
+    (r"不可否认的是[，,].*?[。！？]", "不可否认的是，...（绝对化断言）"),
+    (r"众所周知[，,].*?[。！？]", "众所周知，...（预设共识）"),
+    (r"显而易见[，,].*?[。！？]", "显而易见，...（预设共识）"),
+    # 探讨型
+    (r"让我们深入探讨.*?[。！？]", "让我们深入探讨...（AI自导自演）"),
+    (r"值得注意的是[，,].*?[。！？]", "值得注意的是，...（AI旁观视角）"),
+    # 伪金句型
+    (r"这[,，]就是.*?[。！？]", "这，就是...（伪金句）"),
+]
+
+
+def _extract_ai_cliches(removed: str, added: str) -> set[str]:
+    """提取用户删除且未保留的 AI 套路词汇。"""
+    ai_pattern = re.compile(
+        r"值得注意的是|不可否认的是|让我们|深入探讨|不言而喻|众所周知|显而易见|"
+        r"在当今社会|随着科技的发展|这是一个值得深思的问题|不仅如此|总而言之|综上所述|"
+        r"让我们一起|相信未来|毫无疑问"
+    )
+    matches = ai_pattern.findall(removed)
+    return {m for m in matches if m not in added}
+
+
+def _extract_ai_patterns(removed: str, added: str) -> set[str]:
+    """提取用户删除且未保留的 AI 套路句型（返回模板描述集合）。"""
+    found: set[str] = set()
+    for regex, desc in AI_PATTERN_TEMPLATES:
+        for match in re.findall(regex, removed):
+            # 确认修改后的文本中不存在该匹配的具体实例
+            if match not in added:
+                found.add(desc)
+    return found
+
+
 def _update_anti_patterns_from_revision(skill_dir: Path, revision: dict) -> None:
     """
-    扫描 revision 中的 changes，提取用户删除的 AI 套路词，追加到 anti-patterns.md。
+    扫描 revision 中的 changes，提取用户删除的 AI 套路词和句型，追加到 anti-patterns.md。
     避免重复添加。
     """
     anti_patterns_path = skill_dir / "references" / "anti-patterns.md"
@@ -211,38 +267,72 @@ def _update_anti_patterns_from_revision(skill_dir: Path, revision: dict) -> None
 
     existing_content = anti_patterns_path.read_text(encoding="utf-8")
 
-    # 收集所有被用户删除的 AI 套路词
+    # ------------------------------------------------------------------
+    # 1) 提取单个词汇
+    # ------------------------------------------------------------------
     new_cliches: set[str] = set()
-    ai_pattern = re.compile(r"值得注意的是|不可否认的是|让我们|深入探讨|不言而喻|众所周知|显而易见|在当今社会|随着科技的发展|这是一个值得深思的问题|不仅如此|总而言之|综上所述|让我们一起|相信未来|毫无疑问")
     for change in revision.get("changes", []):
         removed = change.get("removed", "")
         added = change.get("added", "")
-        matches = ai_pattern.findall(removed)
-        # 只统计用户删除且未在修改后保留的
-        for m in matches:
-            if m not in added:
-                new_cliches.add(m)
+        new_cliches |= _extract_ai_cliches(removed, added)
 
-    if not new_cliches:
+    to_add_cliches = [c for c in sorted(new_cliches) if c not in existing_content]
+
+    # ------------------------------------------------------------------
+    # 2) 提取句型模式
+    # ------------------------------------------------------------------
+    new_patterns: set[str] = set()
+    for change in revision.get("changes", []):
+        removed = change.get("removed", "")
+        added = change.get("added", "")
+        new_patterns |= _extract_ai_patterns(removed, added)
+
+    to_add_patterns = [p for p in sorted(new_patterns) if p not in existing_content]
+
+    if not to_add_cliches and not to_add_patterns:
         return
 
-    # 检查哪些词已存在于 anti-patterns.md 中
-    to_add = [c for c in new_cliches if c not in existing_content]
-    if not to_add:
-        return
-
-    # 追加到 "高频 AI 味" 部分末尾
     lines = existing_content.splitlines()
-    insert_idx = len(lines)
-    # 查找 "高频 AI 味" 或 "常见套路句" 的边界
-    for i, line in enumerate(lines):
-        if "常见套路句" in line or "不允许伪造" in line:
-            insert_idx = i
-            break
 
-    new_lines = [f"- {c}" for c in sorted(to_add)]
-    updated_lines = lines[:insert_idx] + [""] + new_lines + lines[insert_idx:]
-    anti_patterns_path.write_text("\n".join(updated_lines), encoding="utf-8")
+    # ------------------------------------------------------------------
+    # 3) 词汇追加到 "高频 AI 味" 区块末尾
+    # ------------------------------------------------------------------
+    if to_add_cliches:
+        cliché_insert_idx = len(lines)
+        for i, line in enumerate(lines):
+            if "常见套路句" in line or "不允许伪造" in line:
+                cliché_insert_idx = i
+                break
+        cliché_lines = [f"- {c}" for c in to_add_cliches]
+        lines = lines[:cliché_insert_idx] + [""] + cliché_lines + lines[cliché_insert_idx:]
+
+    # ------------------------------------------------------------------
+    # 4) 句型追加到 "常见套路句" 区块末尾
+    # ------------------------------------------------------------------
+    if to_add_patterns:
+        # 重新定位（因为上面可能已插入内容）
+        pattern_start_idx = None
+        pattern_end_idx = len(lines)
+        for i, line in enumerate(lines):
+            if "常见套路句" in line:
+                pattern_start_idx = i
+            elif pattern_start_idx is not None and line.startswith("## ") and "常见套路句" not in line:
+                pattern_end_idx = i
+                break
+
+        if pattern_start_idx is not None:
+            pattern_lines = [f"- \"{p}\"" for p in to_add_patterns]
+            lines = lines[:pattern_end_idx] + [""] + pattern_lines + lines[pattern_end_idx:]
+        else:
+            # 如果文档中没有"常见套路句"区块，在末尾创建
+            pattern_lines = [
+                "",
+                "## 常见套路句",
+                "",
+            ] + [f"- \"{p}\"" for p in to_add_patterns]
+            lines.extend(pattern_lines)
+
+    anti_patterns_path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def main() -> int:

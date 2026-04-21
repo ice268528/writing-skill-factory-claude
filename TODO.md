@@ -194,7 +194,11 @@
 
 12. **正文生成**：`generate_article.py` 仍仅生成文件骨架与占位文本，实际文章由 Claude Code 调用 active child skill 完成，脚本本身不生成正文。（设计如此，未变更）
 13. **Claude Code 识别**：`/writer-test_writer` 已验证可在 Claude Code 中直接识别并调用，SKILL.md 内容完整加载。（验证时间：2026-04-21）
-14. **anti-patterns 自动扩充**：`promote_rules.py` 已集成 `_update_anti_patterns_from_revision()`，从 revision diff 中自动提取用户删除的 AI 套路词并追加到 `anti-patterns.md`，避免重复。但尚未建立从 diff 中识别"高频 AI 味句型"（而非单纯词汇）的机制。（P2 可深化）
+14. **anti-patterns 自动扩充**：`promote_rules.py` 已增强 `_update_anti_patterns_from_revision()`，新增 `AI_PATTERN_TEMPLATES` 句型模板库（18 组正则模式），支持从 revision diff 中同时提取：
+    - **单个 AI 套路词汇**（如"值得注意的是""综上所述"）
+    - **AI 味句型模式**（如"在当今社会，...""随着...的发展，...""...的背后，是...""这不得不让人思考..."等）
+    - 词汇追加到 `anti-patterns.md` 的"高频 AI 味"区块，句型追加到"常见套路句"区块，均避免重复添加。
+    - 语法检查通过，单元测试（`_extract_ai_cliches` / `_extract_ai_patterns` / `_update_anti_patterns_from_revision`）全部通过，diff_classification 回归测试 7/7 通过。
 
 ---
 

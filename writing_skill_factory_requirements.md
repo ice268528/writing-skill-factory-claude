@@ -126,33 +126,33 @@
 
 1. `wechat-style-profiler`
    - GitHub: `https://github.com/gainubi/wechat-skills/tree/main/wechat-style-profiler`
-   - 本地路径：`E:\Allproject\PyProject\StyleDistill_SKILLS\wechat-skills\wechat-style-profiler`
+   - 本地路径：`E:\Allproject\PyProject\StyleDistill_SKILLS\Reference projects\wechat-skills\wechat-style-profiler`
 
 2. `nuwa-skill`
    - GitHub: `https://github.com/alchaincyf/nuwa-skill`
-   - 本地路径：`E:\Allproject\PyProject\StyleDistill_SKILLS\nuwa-skill`
+   - 本地路径：`E:\Allproject\PyProject\StyleDistill_SKILLS\Reference projects\nuwa-skill`
 
 3. `cangjie-skill`
    - GitHub: `https://github.com/kangarooking/cangjie-skill`
-   - 本地路径：`E:\Allproject\PyProject\StyleDistill_SKILLS\cangjie-skill`
+   - 本地路径：`E:\Allproject\PyProject\StyleDistill_SKILLS\Reference projects\cangjie-skill`
 
 ### 5.2 创建 skill 的 skill
 
 4. `skill-creator`
    - GitHub: `https://github.com/anthropics/skills/tree/main/skills/skill-creator`
-   - 本地路径：`E:\Allproject\PyProject\StyleDistill_SKILLS\claude_skills\skills\skill-creator`
+   - 本地路径：`E:\Allproject\PyProject\StyleDistill_SKILLS\Reference projects\claude_skills\skills\skill-creator`
 
 ### 5.3 自我进化 / 棘轮优化
 
 5. `darwin-skill`
    - GitHub: `https://github.com/alchaincyf/darwin-skill`
-   - 本地路径：`E:\Allproject\PyProject\StyleDistill_SKILLS\darwin-skill`
+   - 本地路径：`E:\Allproject\PyProject\StyleDistill_SKILLS\Reference projects\darwin-skill`
 
 ### 5.4 子 skill 质量与完整度参考
 
 6. `khazix-writer`
    - GitHub: `https://github.com/KKKKhazix/khazix-skills/tree/main/khazix-writer`
-   - 本地路径：`E:\Allproject\PyProject\StyleDistill_SKILLS\khazix-skills\khazix-writer`
+   - 本地路径：`E:\Allproject\PyProject\StyleDistill_SKILLS\Reference projects\khazix-skills\khazix-writer`
 
 ---
 
