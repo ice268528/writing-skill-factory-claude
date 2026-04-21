@@ -9,6 +9,7 @@ publish_child.py
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -40,7 +41,18 @@ def publish_child(child_name: str, factory_dir: str, skills_dir: str) -> None:
         shutil.rmtree(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    # 同步文件
+    # 同步文件（同步前更新 SKILL.md 中的版本号）
+    skill_md_src = skill_src / "SKILL.md"
+    if skill_md_src.exists():
+        content = skill_md_src.read_text(encoding="utf-8")
+        # 更新 frontmatter 中的版本声明（简单替换）
+        content = re.sub(
+            r"> 当前版本：\d+\.\d+\.\d+",
+            f"> 当前版本：{version}",
+            content,
+        )
+        skill_md_src.write_text(content, encoding="utf-8")
+
     for item in skill_src.rglob("*"):
         if item.is_file():
             rel = item.relative_to(skill_src)
@@ -60,6 +72,18 @@ def publish_child(child_name: str, factory_dir: str, skills_dir: str) -> None:
     log_path = state_dir / "learning-log.jsonl"
     with log_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+
+    # 追加 change-log
+    changelog_path = repo_dir / "reports" / "change-log.md"
+    if changelog_path.exists():
+        log_entry = (
+            f"\n## {version} ({datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')})\n\n"
+            f"- **Type:** release\n"
+            f"- **Status:** published to active skills\n"
+            f"- **Destination:** `{dest_dir}`\n"
+        )
+        existing = changelog_path.read_text(encoding="utf-8")
+        changelog_path.write_text(existing + log_entry, encoding="utf-8")
 
     print(f"[publish_child] Published writer-{child_name} v{version} to {dest_dir}")
 

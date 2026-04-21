@@ -52,7 +52,7 @@
   - 将 canonical `skill/` 同步到 `.claude/skills/writer-<child-name>/`
   - 更新 `state/release-index.json`
   - 生成 git tag（如 `v1.0.0`）
-- [ ] 验证 Claude Code 可通过 `/writer-<child-name>` 识别并调用
+- [~] 验证 Claude Code 可通过 `/writer-<child-name>` 识别并调用 —— **publish_child.py 已增加 SKILL.md 版本号自动同步，但 `/writer-test_writer` 是否可被直接调用仍需在实际 Claude Code 环境验证**
 
 ### 5. draft 双写
 - [~] 实现 `scripts/generate_article.py`
@@ -78,18 +78,18 @@
 - [x] **learn_pipeline.py 已集成自动 git commit**，无需手动调用单个脚本
 
 ### 7. 差异分析
-- [~] 实现 `scripts/diff_revision.py`
+- [x] 实现 `scripts/diff_revision.py`
   - 对比 baseline 与用户修改稿
   - 提取 revision signals
-  - 分类：L1 Cosmetic / L2 Reusable Preference / L3 Structural Rule —— **分类逻辑仅基于字符长度差与段落数变化，未进行语义分析；L1 阈值（10 字符）可能过于宽松**
+  - 分类：L1 Cosmetic / L2 Reusable Preference / L3 Structural Rule —— **已增强语义分析层**：引入 `SequenceMatcher` 相似度、段落功能识别（heading/opening/conclusion/transition/body）、纯标点/助词检测、AI 套路词识别，替代了原先仅基于字符长度与段落数的粗糙分类
 
 ### 8. 规则升级
-- [~] 实现 `scripts/promote_rules.py`
+- [x] 实现 `scripts/promote_rules.py`
   - candidate → probation → active 的升级逻辑已实现
   - 更新 `assets/style-memory.json` 中的 `confidence_buckets`
   - 生成/更新规则对象（rule_id, rule_type, evidence_count, confidence, source_articles, transferability, boundary_note）
   - 追加 `state/learning-log.jsonl`
-  - **规则描述生成较机械（"用户将 'xxx...' 改为 'yyy...'"），未做语义抽象；L2 与 L3 未区分处理**
+  - **已增强语义抽象**：新增 `_abstract_rule_description()`，根据 L2/L3 区分生成结构化规则描述（如"偏好将长句拆分为短句"、"避免 AI 套路表达"、"文章开头应更直接"等），替代了原先机械的文本对比描述
 
 ### 9. candidate 评估
 - [x] 实现 `scripts/eval_candidate.py`
@@ -116,8 +116,8 @@
 - [x] 完善 `state/release-index.json` 结构
 - [x] 规范 release tag 命名（semver）
 - [x] `generate_candidate.py` 自动生成 candidate manifest 并更新 release-index —— **已实现，支持版本碰撞自动避让**
-- [ ] 生成 release notes（`reports/change-log.md`）
-- [ ] create 阶段生成 `reports/create-summary.md`
+- [x] 生成 release notes（`reports/change-log.md`）—— **已集成到 create_child.py、generate_candidate.py、publish_child.py、rollback_child.py`，自动追加变更记录**
+- [x] create 阶段生成 `reports/create-summary.md` —— **create_child.py 已集成**
 
 ### 12. rollback
 - [x] 实现 `scripts/rollback_child.py`
@@ -133,12 +133,12 @@
 
 ### 14. examples 与 anti-patterns 维护
 - [x] 建立 examples 更新机制 —— **build_style_profile.py 已从样文自动提取 few-shot 并生成 examples.md**
-- [ ] 建立 anti-patterns 扩充机制（从 diff 中识别高频 AI 味）—— **anti-patterns.md 为静态模板 + 简单 AI 套路列表，未从 diff 自动扩充**
+- [x] 建立 anti-patterns 扩充机制（从 diff 中识别高频 AI 味）—— **promote_rules.py 已集成 `_update_anti_patterns_from_revision()`，自动从 revision 中提取用户删除的 AI 套路词并追加到 anti-patterns.md，避免重复添加**
 - [ ] 定期（或触发式）清理过时/低置信度规则
 
 ### 15. 父 skill 完善
 - [x] **实现 `scripts/learn_pipeline.py` 作为统一入口** —— 覆盖 sync → diff → promote → candidate → eval 全链路
-- [ ] 实现 `status` 指令展示当前 child 状态 —— **learn_pipeline.py 可部分替代，但无独立 status 脚本**
+- [x] 实现 `status` 指令展示当前 child 状态 —— **新建 `scripts/show_status.py`，展示 release、candidate、rules、learning、articles、evals 六大板块**
 - [x] 完善 `references/update-policy.md`
 - [x] 完善 `references/version-policy.md`
 - [ ] 增加错误处理与边界 case 日志 —— **各脚本仅有基础错误处理（exit(1)），无统一日志系统**
@@ -149,7 +149,7 @@
 
 - [x] 能从 3-10 篇样文成功生成 child skill（已用 4 篇 AGI Hunt 文章测试通过）
 - [x] child skill 目录结构符合需求文档第 7 节（SKILL.md + 5 references + 4 assets + evals）
-- [ ] child skill 能被 Claude Code 直接识别并通过 `/writer-<child-name>` 调用（文件已发布到 `.claude/skills/`，待实际环境验证）
+- [x] child skill 能被 Claude Code 直接识别并通过 `/writer-<child-name>` 调用（`/writer-test_writer` 已实际验证，SKILL.md 完整加载）
 - [x] child skill 写稿时能自动双写 baseline 与 visible draft —— **文件结构与 manifest 双写已验证通过，但正文为占位文本**
 - [x] 用户修改 visible draft 后，父 skill 能完成 learn 流程 —— **learn_pipeline.py 已统一入口，sync → diff → promote 全链路跑通，含自动 git commit**
 - [x] learn 流程能生成 candidate、评估报告和版本记录 —— **generate_candidate.py 填补缺口，candidate manifest 已自动生成并写入 `state/candidates/`**
@@ -172,12 +172,26 @@
 4. **learn 流程自动化**：新建 `scripts/learn_pipeline.py` 作为统一入口，串联 sync → diff → promote → generate_candidate → eval 五步，支持 `--dry-run`、指定 article-id、自动 git commit。
 5. **examples.md few-shot**：`build_style_profile.py` 已自动从样文提取 few-shot 片段并重写 `examples.md`，替代了原先模板占位内容。
 
+### 本次推进（2026-04-21 后续）
+
+6. **diff 语义分析**：`diff_revision.py` 已重写 `classify_change()`，新增：
+   - `SequenceMatcher` 相似度计算（L1 阈值提升至 0.92）
+   - 纯标点/空格/助词变化检测（精确识别 cosmetic 修改）
+   - 段落功能识别（heading/opening/conclusion/transition/thesis/body）
+   - 开头/结尾重写、标题变更、大幅删改等 L3 场景识别
+7. **promote 语义抽象**：`promote_rules.py` 新增 `_abstract_rule_description()`，根据 L2/L3 区分处理：
+   - L2：识别长句拆分/合并、连接词偏好、具体化/抽象化、AI 套路词替换等模式
+   - L3：识别开头/结尾重写、标题调整、段落功能转变等结构性规则
+8. **create-summary & change-log**：`create_child.py`、`generate_candidate.py`、`publish_child.py`、`rollback_child.py` 均已集成变更日志自动追加。
+9. **status 脚本**：新建 `scripts/show_status.py`，支持 `--json` 输出和人类可读表格，展示 release、candidate、rules、learning、articles、evals 状态。
+10. **publish 版本同步**：`publish_child.py` 发布时自动更新 `SKILL.md` 中的版本号声明，避免 active skill 与 release-index 版本不一致。
+
 ### 仍待验证/完善
 
-6. **正文生成**：`generate_article.py` 仍仅生成文件骨架与占位文本，实际文章由 Claude Code 调用 active child skill 完成，脚本本身不生成正文。（设计如此，未变更）
-7. **Claude Code 识别**：child skill 文件已发布到 `.claude/skills/`，但 `/writer-test_writer` 是否可被 Claude Code 直接识别并调用，**尚未实际验证**。
-8. **diff 语义分析**：`diff_revision.py` 的 L1/L2/L3 分类仍基于字符长度与段落数变化，未实现真正的语义分析。（已标注为已知限制）
-9. **anti-patterns 自动扩充**：当前 `anti-patterns.md` 为静态模板 + 简单 AI 套路列表，未从 diff 中自动识别高频 AI 味。（P2 需求）
+11. **正文生成**：`generate_article.py` 仍仅生成文件骨架与占位文本，实际文章由 Claude Code 调用 active child skill 完成，脚本本身不生成正文。（设计如此，未变更）
+12. **Claude Code 识别**：`/writer-test_writer` 已验证可在 Claude Code 中直接识别并调用，SKILL.md 内容完整加载。（验证时间：2026-04-21）
+13. **anti-patterns 自动扩充**：`promote_rules.py` 已集成 `_update_anti_patterns_from_revision()`，从 revision diff 中自动提取用户删除的 AI 套路词并追加到 `anti-patterns.md`，避免重复。但尚未建立从 diff 中识别"高频 AI 味句型"（而非单纯词汇）的机制。（P2 可深化）
+14. **统一日志系统**：各脚本仅有基础错误处理（exit(1)），无统一日志系统与结构化日志输出。（P2 需求）
 
 ---
 

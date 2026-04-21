@@ -58,6 +58,18 @@ def rollback_child(child_name: str, version: str, factory_dir: str, skills_dir: 
             dest_file.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(item, dest_file)
 
+    # 追加 change-log
+    changelog_path = repo_dir / "reports" / "change-log.md"
+    if changelog_path.exists():
+        log_entry = (
+            f"\n## {version} ({datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')})\n\n"
+            f"- **Type:** rollback\n"
+            f"- **Rolled back to:** `{tag}`\n"
+            f"- **Destination:** `{dest_dir}`\n"
+        )
+        existing = changelog_path.read_text(encoding="utf-8")
+        changelog_path.write_text(existing + log_entry, encoding="utf-8")
+
     # 记录日志
     log_path = state_dir / "learning-log.jsonl"
     log_entry = {

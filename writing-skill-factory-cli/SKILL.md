@@ -100,6 +100,18 @@ Phase 8: 发布到 `.claude/skills/writer-<child-name>/`
 2. 重新 publish 到 active child
 3. 保留失败 candidate 的报告
 
+### status
+
+1. 运行 `scripts/show_status.py <child-name>`
+2. 展示当前 child 的六大状态板块：
+   - **Release**：最新版本、发布次数
+   - **Candidates**：候选数量、最新候选版本
+   - **Rules**：active / probation / candidate 规则统计
+   - **Learning**：pipeline 运行次数、promote 事件数
+   - **Articles**：样文、baseline、revision 数量
+   - **Evals**：评估报告数量与最新报告
+3. 支持 `--json` 输出原始 JSON（供其他脚本消费）
+
 ## 目录映射
 
 | 路径 | 语义 |
@@ -135,3 +147,4 @@ Phase 8: 发布到 `.claude/skills/writer-<child-name>/`
 - `scripts/learn_pipeline.py` — **统一 learn 流程入口**（sync → diff → promote → candidate → eval）
 - `scripts/publish_child.py` — canonical skill → active child 发布
 - `scripts/rollback_child.py` — 从 release 恢复并重新发布
+- `scripts/show_status.py` — 展示 child 当前状态（release、rules、learning、evals 等）

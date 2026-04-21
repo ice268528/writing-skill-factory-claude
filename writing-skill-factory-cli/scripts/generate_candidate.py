@@ -189,8 +189,28 @@ def generate_candidate(child_name: str, factory_dir: str) -> dict:
     })
     release_index_path.write_text(json.dumps(release_index, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    # 追加 change-log
+    changelog_path = repo_dir / "reports" / "change-log.md"
+    changelog_path.parent.mkdir(parents=True, exist_ok=True)
+    log_entry = (
+        f"\n## {new_version} ({datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')})\n\n"
+        f"- **Type:** candidate\n"
+        f"- **Parent:** {current_version}\n"
+        f"- **SHA:** `{git_sha[:8] if git_sha else 'N/A'}`\n"
+        f"- **Changes:** {change_summary}\n"
+        f"- **Changed files:** {', '.join(changed_files) if changed_files else 'N/A'}\n"
+    )
+    if changelog_path.exists():
+        existing = changelog_path.read_text(encoding="utf-8")
+        if "# Change Log" not in existing:
+            existing = "# Change Log\n" + existing
+    else:
+        existing = "# Change Log\n"
+    changelog_path.write_text(existing + log_entry, encoding="utf-8")
+
     print(f"[generate_candidate] Candidate v{new_version} generated for {child_name}")
     print(f"[generate_candidate] Manifest: {candidate_path}")
+    print(f"[generate_candidate] Change log: {changelog_path}")
 
     return candidate_manifest
 

@@ -189,8 +189,44 @@ def create_child(child_name: str, samples_dir: str, factory_base: str) -> Path:
         capture_output=True,
     )
 
+    # 生成 create-summary 报告
+    summary_path = reports_dir / "create-summary.md"
+    summary_lines = [
+        "# Create Summary",
+        "",
+        f"**Child Name:** {child_name}",
+        f"**Version:** {version}",
+        f"**Created At:** {now}",
+        f"**Sample Count:** {len(sample_files)}",
+        "",
+        "## Sample Sources",
+        "",
+    ]
+    for src in sample_sources:
+        summary_lines.append(f"- `{src}`")
+    summary_lines.extend([
+        "",
+        "## Generated Files",
+        "",
+    ])
+    for dest, tpl in files_to_generate.items():
+        rel = dest.relative_to(skill_dir).as_posix()
+        status = "from template" if tpl else "placeholder"
+        summary_lines.append(f"- `{rel}` ({status})")
+    summary_lines.extend([
+        "",
+        "## Next Steps",
+        "",
+        "1. Run `build_style_profile.py` to extract 14-dimension style profile.",
+        "2. Run `build_cognitive_profile.py` to generate editorial rules and boundary.",
+        "3. Publish with `publish_child.py` to activate the skill.",
+        "",
+    ])
+    summary_path.write_text("\n".join(summary_lines), encoding="utf-8")
+
     print(f"[create_child] Canonical repo created at: {repo_dir}")
     print(f"[create_child] Child skill skeleton ready: {skill_dir}")
+    print(f"[create_child] Create summary: {summary_path}")
     return repo_dir
 
 
