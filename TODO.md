@@ -140,14 +140,14 @@
 
 ## 验收检查清单
 
-- [ ] 能从 3-10 篇样文成功生成 child skill
-- [ ] child skill 目录结构符合需求文档第 7 节
-- [ ] child skill 能被 Claude Code 直接识别并通过 `/writer-<child-name>` 调用
-- [ ] child skill 写稿时能自动双写 baseline 与 visible draft
-- [ ] 用户修改 visible draft 后，父 skill 能完成 learn 流程
-- [ ] learn 流程能生成 candidate、评估报告和版本记录
-- [ ] 用户能明确选择 publish 或 rollback
-- [ ] rollback 后 active child 能恢复到之前稳定版本
+- [x] 能从 3-10 篇样文成功生成 child skill（已用 4 篇 AGI Hunt 文章测试通过）
+- [x] child skill 目录结构符合需求文档第 7 节（SKILL.md + 5 references + 4 assets + evals）
+- [ ] child skill 能被 Claude Code 直接识别并通过 `/writer-<child-name>` 调用（文件已发布到 `.claude/skills/`，待实际环境验证）
+- [x] child skill 写稿时能自动双写 baseline 与 visible draft
+- [x] 用户修改 visible draft 后，父 skill 能完成 learn 流程（diff + promote 链路已跑通）
+- [x] learn 流程能生成 candidate、评估报告和版本记录
+- [x] 用户能明确选择 publish 或 rollback（publish 与 rollback 脚本均测试通过）
+- [x] rollback 后 active child 能恢复到之前稳定版本（v1.0.0 回滚验证通过）
 - [x] child skill 输出是多文件 skill，不是单段 prompt
 - [x] child skill 至少具备：选题判断、文章原型识别、AI/人类边界控制、作者态二改、最终自检
 
