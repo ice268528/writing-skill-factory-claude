@@ -1,6 +1,6 @@
 [English](README.md) | [中文](README_zh.md)
 
-# Writing Skill Factory CLI
+# Writing Skill Factory Claude
 
 > 面向 Claude Code 的原生 Skill 工厂，从样文蒸馏作者写作风格，生成可版本化、可持续学习的 `writer-<child-name>` 子 Skill。
 
@@ -12,7 +12,7 @@
 
 ## 项目简介
 
-**Writing Skill Factory CLI** 是一套为 [Claude Code](https://claude.ai/code) 设计的父级 Skill 系统。它能将原始样文转化为一套结构完整、可被直接调用的写作 Skill。区别于一次性 Prompt 工程，它构建的是一个**可持续版本化、可增量学习**的写作者子 Skill。
+**Writing Skill Factory Claude** 是一套为 [Claude Code](https://claude.ai/code) 设计的父级 Skill 系统。它能将原始样文转化为一套结构完整、可被直接调用的写作 Skill。区别于一次性 Prompt 工程，它构建的是一个**可持续版本化、可增量学习**的写作者子 Skill。
 
 系统遵循 **"蒸馏 → 发布 → 写稿 → 学习 → 评估 → 发布/回滚"** 的完整闭环，确保每一次风格更新都有迹可循、可测试、可回退。
 

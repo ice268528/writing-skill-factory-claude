@@ -1,6 +1,6 @@
 [English](README.md) | [中文](README_zh.md)
 
-# Writing Skill Factory CLI
+# Writing Skill Factory Claude
 
 > A Claude Code-native skill factory that distills an author's writing style from sample articles and generates a versioned, learnable `writer-<child-name>` skill.
 
@@ -12,7 +12,7 @@
 
 ## Introduction
 
-**Writing Skill Factory CLI** is a parent skill system for [Claude Code](https://claude.ai/code) that transforms raw sample articles into a fully structured, callable writing skill. Instead of one-shot prompt engineering, it builds a **persistent, versioned writer child** that can draft articles, learn from your edits, and evolve over time.
+**Writing Skill Factory Claude** is a parent skill system for [Claude Code](https://claude.ai/code) that transforms raw sample articles into a fully structured, callable writing skill. Instead of one-shot prompt engineering, it builds a **persistent, versioned writer child** that can draft articles, learn from your edits, and evolve over time.
 
 The system follows a **"distill → publish → draft → learn → evaluate → release"** loop, ensuring every style update is tracked, testable, and reversible.
 
