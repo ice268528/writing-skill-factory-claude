@@ -4,7 +4,7 @@
 
 > 面向 Claude Code 的原生 Skill 工厂，从样文蒸馏作者写作风格，生成可版本化、可持续学习的 `writer-<child-name>` 子 Skill。
 
-![Stars](https://img.shields.io/github/stars/your-username/writing-skill-factory-cli?style=flat-square)
+![Stars](https://img.shields.io/github/stars/your-username/writing-skill-factory-claude?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 ![Version](https://img.shields.io/badge/version-1.0.0-green?style=flat-square)
 
@@ -112,8 +112,8 @@ sequenceDiagram
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/your-username/writing-skill-factory-cli.git
-cd writing-skill-factory-cli
+git clone https://github.com/your-username/writing-skill-factory-claude.git
+cd writing-skill-factory-claude
 
 # 2. 创建并激活 Conda 环境
 conda create -n WritingSkillFactory python=3.11 -y
@@ -124,7 +124,7 @@ pip install -r requirements.txt
 
 # 4. 将父 Skill 放置到 Claude Code 可发现的位置
 mkdir -p .claude/skills
-cp -r writing-skill-factory-cli .claude/skills/
+cp -r writing-skill-factory-claude .claude/skills/
 ```
 
 ### 目录结构
@@ -132,7 +132,7 @@ cp -r writing-skill-factory-cli .claude/skills/
 ```text
 .claude/
 ├── skills/
-│   ├── writing-skill-factory-cli/     # 父 Skill（本项目）
+│   ├── writing-skill-factory-claude/     # 父 Skill（本项目）
 │   └── writer-<child-name>/           # 已激活的子 Skill（自动生成）
 └── writing-factory/
     └── children/

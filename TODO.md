@@ -1,4 +1,4 @@
-# writing-skill-factory-cli 实现 TODO
+# writing-skill-factory-claude 实现 TODO
 
 > 基于 `writing_skill_factory_requirements.md` 制定，按 P0 → P1 → P2 顺序推进。
 
@@ -9,7 +9,7 @@
 目标：能从样文生成 child skill，发布为 active skill，并完成 draft 双写。
 
 ### 1. 父 skill 骨架搭建
-- [x] 创建 `.claude/skills/writing-skill-factory-cli/` 目录结构
+- [x] 创建 `.claude/skills/writing-skill-factory-claude/` 目录结构
   - `SKILL.md`
   - `references/`（architecture.md, ~~source-mapping.md, style-dimensions.md, version-policy.md~~ 最初 TODO 遗漏，实际已存在 ✅）
   - `templates/`（child-skill-skill.md.tpl, style-summary.md.tpl, usage-guide.md.tpl, manifest.json.tpl, evals.json.tpl, quality-rubric.json.tpl, article-schema.json.tpl, generation-policy.json.tpl, examples.md.tpl）
@@ -163,7 +163,7 @@
 
 ## 验证备注（2026-04-21）
 
-基于 [验证报告](../../docs/reports/survey/writing-skill-factory-cli-todo-verification-report.md) 的审查结果，以下是 TODO 与实际实现的偏差汇总：
+基于 [验证报告](../../docs/reports/survey/writing-skill-factory-claude-todo-verification-report.md) 的审查结果，以下是 TODO 与实际实现的偏差汇总：
 
 ### 已修复（本次推进）
 
@@ -242,7 +242,7 @@
 
 > **验证记录（2026-04-22）**：
 > ```
-> cd e:/Allproject/PyProject/StyleDistill_SKILLS && /e/SomeApps/miniconda/envs/WritingSkillFactory/python.exe yiyi_skill/Claude/writing-skill-factory-cli/scripts/run_regression_tests.py test_writer
+> cd e:/Allproject/PyProject/StyleDistill_SKILLS && /e/SomeApps/miniconda/envs/WritingSkillFactory/python.exe yiyi_skill/Claude/writing-skill-factory-claude/scripts/run_regression_tests.py test_writer
 > # 结果：9/9 passed
 > # promote_dedup: passed (dedup_ok=true, separate_ok=true, probation_count=1, candidate_count=1)
 > # promote_cross_article_upgrade: passed (stayed_probation=true, evidence_count=3, source_articles=["art-001"])

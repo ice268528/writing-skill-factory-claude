@@ -3,7 +3,7 @@
 factory_logging.py
 统一结构化日志系统。
 
-所有 writing-skill-factory-cli 脚本共享同一日志文件，
+所有 writing-skill-factory-claude 脚本共享同一日志文件，
 支持控制台人类可读输出 + 文件 JSON 结构化记录。
 """
 

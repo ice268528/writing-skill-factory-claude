@@ -4,7 +4,7 @@
 
 > A Claude Code-native skill factory that distills an author's writing style from sample articles and generates a versioned, learnable `writer-<child-name>` skill.
 
-![Stars](https://img.shields.io/github/stars/your-username/writing-skill-factory-cli?style=flat-square)
+![Stars](https://img.shields.io/github/stars/your-username/writing-skill-factory-claude?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 ![Version](https://img.shields.io/badge/version-1.0.0-green?style=flat-square)
 
@@ -112,8 +112,8 @@ sequenceDiagram
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/writing-skill-factory-cli.git
-cd writing-skill-factory-cli
+git clone https://github.com/your-username/writing-skill-factory-claude.git
+cd writing-skill-factory-claude
 
 # 2. Create and activate the Conda environment
 conda create -n WritingSkillFactory python=3.11 -y
@@ -124,7 +124,7 @@ pip install -r requirements.txt
 
 # 4. Place the parent skill where Claude Code can find it
 mkdir -p .claude/skills
-cp -r writing-skill-factory-cli .claude/skills/
+cp -r writing-skill-factory-claude .claude/skills/
 ```
 
 ### Directory Layout
@@ -132,7 +132,7 @@ cp -r writing-skill-factory-cli .claude/skills/
 ```text
 .claude/
 ├── skills/
-│   ├── writing-skill-factory-cli/     # Parent skill (this project)
+│   ├── writing-skill-factory-claude/     # Parent skill (this project)
 │   └── writer-<child-name>/           # Active child skill (generated)
 └── writing-factory/
     └── children/

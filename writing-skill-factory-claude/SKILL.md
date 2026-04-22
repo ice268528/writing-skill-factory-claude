@@ -1,5 +1,5 @@
 ---
-name: writing-skill-factory-cli
+name: writing-skill-factory-claude
 description: >
   父级 skill 工厂 CLI。负责根据样文蒸馏作者风格、创建 writer-<child-name> 子 skill、
   管理 draft 双写、从用户修改中学习、评估 candidate、发布与回滚。
@@ -13,7 +13,7 @@ allowed-tools:
   - Grep
 ---
 
-# writing-skill-factory-cli
+# writing-skill-factory-claude
 
 > 根据用户提供的多篇文章蒸馏作者风格与写作系统，生成可被 Claude Code 识别和调用的 `writer-<child-name>` 子 skill。
 
@@ -142,7 +142,7 @@ Phase 8: 发布到 `.claude/skills/writer-<child-name>/`
 
 | 路径 | 语义 |
 |------|------|
-| `.claude/skills/writing-skill-factory-cli/` | 父 skill 常驻目录 |
+| `.claude/skills/writing-skill-factory-claude/` | 父 skill 常驻目录 |
 | `.claude/skills/writer-<child-name>/` | 当前 active child（Claude 直接识别） |
 | `.claude/writing-factory/children/<child-name>/repo/` | child 的 canonical git 仓库 |
 | `.claude/writing-factory/children/<child-name>/repo/skill/` | child skill 源码 |

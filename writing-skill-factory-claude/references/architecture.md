@@ -10,7 +10,7 @@
                               |
                               v
 +-------------------------------------------------------------+
-|              writing-skill-factory-cli (父 skill)            |
+|              writing-skill-factory-claude (父 skill)            |
 |  create | draft | learn | eval | publish | rollback | status |
 +-------------------------------------------------------------+
                               |

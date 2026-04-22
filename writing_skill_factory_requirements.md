@@ -1,6 +1,6 @@
-# writing-skill-factory-cli 实现需求与约束规范
+# writing-skill-factory-claude 实现需求与约束规范
 
-> 本文档仅用于指导 Claude Code 实现 `writing-skill-factory-cli` 父 skill 与其生成的 `writer-<child-name>` 子 skill。
+> 本文档仅用于指导 Claude Code 实现 `writing-skill-factory-claude` 父 skill 与其生成的 `writer-<child-name>` 子 skill。
 > 
 > 本文档是实现规约，不是背景说明，不依赖任何聊天记录，不假设实现者知道本文档之外的上下文。
 > 
@@ -25,7 +25,7 @@
 
 需要实现一个 Claude Code 原生系统，包含两个层级：
 
-- 父 skill：`writing-skill-factory-cli`
+- 父 skill：`writing-skill-factory-claude`
 - 子 skill：`writer-<child-name>`
 
 系统必须满足以下目标：
@@ -73,7 +73,7 @@
 
 ### 4.2 父 skill 的调用方式
 
-`writing-skill-factory-cli` 属于高副作用流程型 skill。
+`writing-skill-factory-claude` 属于高副作用流程型 skill。
 
 要求：
 
@@ -288,7 +288,7 @@
 project-root/
 ├── .claude/
 │   ├── skills/
-│   │   ├── writing-skill-factory-cli/
+│   │   ├── writing-skill-factory-claude/
 │   │   │   ├── SKILL.md
 │   │   │   ├── references/
 │   │   │   │   ├── architecture.md
@@ -367,7 +367,7 @@ project-root/
 
 目录语义：
 
-1. `.claude/skills/writing-skill-factory-cli/`：父 skill 常驻目录。
+1. `.claude/skills/writing-skill-factory-claude/`：父 skill 常驻目录。
 2. `.claude/skills/writer-<child-name>/`：当前 active child，Claude 直接识别这里。
 3. `.claude/writing-factory/children/<child-name>/repo/skill/`：该 child 的 canonical source。
 4. `.claude/writing-factory/children/<child-name>/repo/state/`：学习状态、baseline、candidate、release、log。
