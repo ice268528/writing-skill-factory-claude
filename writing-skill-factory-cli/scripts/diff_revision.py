@@ -15,7 +15,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from factory_logging import setup_logger, LogContext
+from factory_logging import setup_logger, LogContext, sanitize_child_name
 
 
 def _is_punctuation_only(old_text: str, new_text: str) -> bool:
@@ -278,6 +278,7 @@ def main() -> int:
     parser.add_argument("--factory-dir", default=".claude/writing-factory/children", help="Factory base dir")
     parser.add_argument("--project-root", default=".", help="Project root directory")
     args = parser.parse_args()
+    args.child_name = sanitize_child_name(args.child_name)
 
     result = diff_revision(args.child_name, args.article_id, args.factory_dir, args.project_root)
     print(json.dumps(result, ensure_ascii=False, indent=2))

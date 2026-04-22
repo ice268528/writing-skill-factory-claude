@@ -15,7 +15,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from factory_logging import setup_logger, LogContext
+from factory_logging import setup_logger, LogContext, sanitize_child_name
 
 
 def _description_similarity(desc1: str, desc2: str) -> float:
@@ -358,6 +358,7 @@ def main() -> int:
     parser.add_argument("article_id", help="Article ID")
     parser.add_argument("--factory-dir", default=".claude/writing-factory/children", help="Factory base dir")
     args = parser.parse_args()
+    args.child_name = sanitize_child_name(args.child_name)
 
     result = promote_rules(args.child_name, args.article_id, args.factory_dir)
     print(json.dumps(result, ensure_ascii=False, indent=2))

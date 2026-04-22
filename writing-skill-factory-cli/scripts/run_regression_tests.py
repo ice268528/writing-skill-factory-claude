@@ -25,7 +25,7 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
-from factory_logging import LogContext, setup_logger
+from factory_logging import LogContext, setup_logger, sanitize_child_name
 
 logger = setup_logger("run_regression_tests")
 
@@ -638,6 +638,7 @@ def main() -> int:
     parser.add_argument("--factory-dir", default=".claude/writing-factory/children", help="Factory base dir")
     parser.add_argument("--project-root", default=".", help="Project root directory")
     args = parser.parse_args()
+    args.child_name = sanitize_child_name(args.child_name)
 
     with LogContext(logger, child_name=args.child_name, step="regression_test"):
         logger.info("Starting regression tests for %s", args.child_name)

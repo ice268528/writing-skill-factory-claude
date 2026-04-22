@@ -15,7 +15,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from factory_logging import setup_logger, LogContext
+from factory_logging import setup_logger, LogContext, sanitize_child_name
 
 
 def compute_sha(text: str) -> str:
@@ -138,6 +138,7 @@ def main() -> int:
     parser.add_argument("--factory-dir", default=".claude/writing-factory/children", help="Factory base dir")
     parser.add_argument("--project-root", default=".", help="Project root directory")
     args = parser.parse_args()
+    args.child_name = sanitize_child_name(args.child_name)
 
     result = sync_visible_edits(args.child_name, args.factory_dir, args.project_root)
     print(json.dumps(result, ensure_ascii=False, indent=2))

@@ -23,7 +23,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from factory_logging import LogContext, setup_logger
+from factory_logging import LogContext, setup_logger, sanitize_child_name
 
 logger = setup_logger("prune_rules")
 
@@ -233,6 +233,7 @@ def main() -> int:
     parser.add_argument("--min-evidence", type=int, default=1, help="Minimum evidence_count to keep a candidate rule")
     parser.add_argument("--prune-candidate-only", action="store_true", help="Only prune candidate bucket, leave probation/active untouched")
     args = parser.parse_args()
+    args.child_name = sanitize_child_name(args.child_name)
 
     with LogContext(logger, child_name=args.child_name, step="prune"):
         result = prune_rules(

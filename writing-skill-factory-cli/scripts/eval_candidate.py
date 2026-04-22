@@ -15,7 +15,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from factory_logging import setup_logger, LogContext
+from factory_logging import setup_logger, LogContext, sanitize_child_name
 
 
 def run_git_show(repo_dir: Path, tag: str, file_path: str) -> str:
@@ -440,6 +440,7 @@ def main() -> int:
     parser.add_argument("child_name", help="Child skill name")
     parser.add_argument("--factory-dir", default=".claude/writing-factory/children", help="Factory base dir")
     args = parser.parse_args()
+    args.child_name = sanitize_child_name(args.child_name)
 
     result = eval_candidate(args.child_name, args.factory_dir)
     print(json.dumps(result, ensure_ascii=False, indent=2))

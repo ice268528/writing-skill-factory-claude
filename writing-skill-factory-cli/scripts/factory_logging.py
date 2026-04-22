@@ -9,10 +9,27 @@ factory_logging.py
 
 import json
 import logging
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+
+def sanitize_child_name(name: str) -> str:
+    """将 skill 名称规范化：只允许小写字母、数字和连字符。
+
+    将下划线替换为连字符，并移除此外的所有非法字符。
+    """
+    # 先将下划线替换为连字符
+    name = name.replace("_", "-")
+    # 只保留允许的字符：小写字母、数字、连字符
+    name = re.sub(r"[^a-z0-9\-]", "", name.lower())
+    # 合并连续连字符
+    name = re.sub(r"\-+", "-", name)
+    # 移除首尾连字符
+    name = name.strip("-")
+    return name
 
 # 推导项目根目录（本文件位于 scripts/，项目根目录是其父目录）
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -100,7 +117,7 @@ class LogContext:
     上下文管理器，用于临时注入 child_name / step 等字段。
 
     用法:
-        with LogContext(logger, child_name="test_writer", step="sync"):
+        with LogContext(logger, child_name="test-writer", step="sync"):
             logger.info("开始同步")
     """
 

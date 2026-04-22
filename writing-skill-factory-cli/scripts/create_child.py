@@ -16,7 +16,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from factory_logging import LogContext, setup_logger
+from factory_logging import LogContext, setup_logger, sanitize_child_name
 
 logger = setup_logger("create_child")
 
@@ -244,6 +244,7 @@ def main() -> int:
         help="Base directory for writing factory children",
     )
     args = parser.parse_args()
+    args.child_name = sanitize_child_name(args.child_name)
 
     with LogContext(logger, child_name=args.child_name, step="create"):
         try:

@@ -16,7 +16,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from factory_logging import LogContext, setup_logger
+from factory_logging import LogContext, setup_logger, sanitize_child_name
 
 logger = setup_logger("publish_child")
 
@@ -98,6 +98,7 @@ def main() -> int:
     parser.add_argument("--factory-dir", default=".claude/writing-factory/children", help="Factory base dir")
     parser.add_argument("--skills-dir", default=".claude/skills", help="Claude skills dir")
     args = parser.parse_args()
+    args.child_name = sanitize_child_name(args.child_name)
 
     with LogContext(logger, child_name=args.child_name, step="publish"):
         try:

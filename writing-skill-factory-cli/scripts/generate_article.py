@@ -19,7 +19,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from factory_logging import setup_logger, LogContext
+from factory_logging import setup_logger, LogContext, sanitize_child_name
 
 
 def generate_article_id() -> str:
@@ -160,6 +160,7 @@ def main() -> int:
     parser.add_argument("--factory-dir", default=".claude/writing-factory/children", help="Factory base dir")
     parser.add_argument("--project-root", default=".", help="Project root directory")
     args = parser.parse_args()
+    args.child_name = sanitize_child_name(args.child_name)
 
     manifest = generate_article(args.child_name, args.topic, args.factory_dir, args.project_root)
     print(json.dumps(manifest, ensure_ascii=False, indent=2))

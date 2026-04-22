@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from factory_logging import setup_logger, LogContext
+from factory_logging import setup_logger, LogContext, sanitize_child_name
 
 
 def read_samples(samples_dir: str) -> List[Tuple[str, str]]:
@@ -427,6 +427,7 @@ def main() -> int:
     parser.add_argument("samples_dir", help="Directory containing sample articles")
     parser.add_argument("--factory-dir", default=".claude/writing-factory/children", help="Factory base dir")
     args = parser.parse_args()
+    args.child_name = sanitize_child_name(args.child_name)
     build_cognitive_profile(args.child_name, args.samples_dir, args.factory_dir)
     return 0
 

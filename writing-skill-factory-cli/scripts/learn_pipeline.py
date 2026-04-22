@@ -21,7 +21,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from factory_logging import LogContext, setup_logger
+from factory_logging import LogContext, setup_logger, sanitize_child_name
 
 logger = setup_logger("learn_pipeline")
 
@@ -228,6 +228,7 @@ def main() -> int:
     parser.add_argument("--skip-eval", action="store_true", help="Skip final eval step")
     parser.add_argument("--dry-run", action="store_true", help="Show steps without executing")
     args = parser.parse_args()
+    args.child_name = sanitize_child_name(args.child_name)
 
     try:
         result = learn_pipeline(
