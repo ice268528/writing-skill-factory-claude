@@ -158,12 +158,37 @@ def analyze_connectors(text: str) -> Dict:
 # D05 修辞手法偏好
 # ---------------------------------------------------------------------------
 def analyze_rhetoric(text: str) -> Dict:
+    # 比喻：明确比喻词
+    metaphor = len(re.findall(r'像|如同|仿佛|犹如|像是|好似|宛如', text))
+
+    # 拟人：排除人称主语（我你他她它/我们你们他们她们它们），匹配非人事物+人类行为谓词
+    personification = 0
+    # 常见非人主语 + 人类谓词（风在说、时间见证、城市叹息等）
+    personification += len(re.findall(
+        r'(?:风|雨|阳光|时间|岁月|历史|时代|世界|城市|市场|技术|数据|算法|模型|系统|浪潮|趋势|机器|AI|代码|网络|平台|光线|夜晚|大地|海洋|山川|河流|火焰|种子|萌芽|凋零)[^，。！？\n]{0,4}(?:在|说|觉得|认为|感到|叹息|低语|咆哮|沉默|等待|见证|记录|讲述|诉说|笑|哭|奔跑|沉睡|醒来|凝视)',
+        text
+    ))
+    # 更通用的模式：连续2-6个非人称汉字 + 人类谓词（需前后文排除人名等，这里用保守策略）
+    personification += len(re.findall(
+        r'[^，。！？\n我你他她它咱们俺咱我们你们他们她们它们的]{3,6}(?:在[^，。！？\n]{0,2}(?:说|笑|哭泣|叹息|低语|咆哮)|觉得|认为|感到|见证|记录|讲述|诉说|沉默|等待)',
+        text
+    ))
+
+    # 反问
+    rhetorical_question = len(re.findall(r'难道|岂|何尝|何必', text))
+
+    # 夸张
+    exaggeration = len(re.findall(r'绝对|永远|无数|所有|一切|完全|彻底', text))
+
+    # 对比
+    contrast = len(re.findall(r'不是.*而是|与其.*不如|一方面.*另一方面', text))
+
     patterns = {
-        "metaphor": len(re.findall(r'像|如同|仿佛|犹如|像是', text)),
-        "personification": len(re.findall(r'[^，。！？\n]{2,4}在|[^，。！？\n]{2,4}说|[^，。！？\n]{2,4}觉得', text)),
-        "rhetorical_question": len(re.findall(r'难道|岂|何尝|何必|不是吗|对吧|不是吗', text)),
-        "exaggeration": len(re.findall(r'绝对|永远|无数|所有|一切|完全|彻底', text)),
-        "contrast": len(re.findall(r'不是.*而是|与其.*不如|一方面.*另一方面', text)),
+        "metaphor": metaphor,
+        "personification": personification,
+        "rhetorical_question": rhetorical_question,
+        "exaggeration": exaggeration,
+        "contrast": contrast,
     }
     total = sum(patterns.values())
     distribution = {k: round(v / total, 2) if total else 0 for k, v in patterns.items()}
@@ -216,16 +241,27 @@ def analyze_information_density(text: str) -> Dict:
     sentences = split_sentences(text)
     if not sentences:
         return {"avg_entities_per_sentence": 0, "dominant": "unknown"}
-    # 简单实体计数：连续2-6个汉字的名词性片段（粗略）
+    # 信息单元计数：数字、英文术语、引号内容、带后缀的专有名词/机构名/技术概念
     entity_counts = []
     for s in sentences:
-        entities = len(re.findall(r'[一-鿿]{2,6}', s))
-        entity_counts.append(entities)
+        count = 0
+        # 数字（含百分比、小数）
+        count += len(re.findall(r'\d+\.?\d*[%％]?', s))
+        # 英文术语（3字母以上）
+        count += len(re.findall(r'[a-zA-Z]{3,}', s))
+        # 引号内容
+        count += len(re.findall(r'[「""].*?[」""]', s))
+        # 带组织/机构/技术后缀的实体
+        count += len(re.findall(
+            r'[一-鿿]{2,8}(?:公司|组织|机构|平台|系统|框架|模型|算法|技术|产品|服务|行业|市场|国家|地区|城市|学派|理论|概念|原则|方法)',
+            s
+        ))
+        entity_counts.append(count)
     avg = sum(entity_counts) / len(entity_counts)
     # 概念密度：每百字平均实体数
     total_chars = len(text)
-    density_per_100 = round(avg / max(len(s), 1) * 100, 2) if sentences else 0
-    dominant = "high" if avg > 12 else ("medium" if avg > 7 else "low")
+    density_per_100 = round(avg / max(len(sentences), 1) * 100, 2) if sentences else 0
+    dominant = "high" if avg > 5 else ("medium" if avg > 2 else "low")
     return {"avg_entities_per_sentence": round(avg, 1), "density_per_100": density_per_100, "dominant": dominant}
 
 

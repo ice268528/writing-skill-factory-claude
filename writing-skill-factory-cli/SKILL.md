@@ -60,12 +60,38 @@ Phase 8: 发布到 `.claude/skills/writer-<child-name>/`
 
 ### draft-with-child
 
-1. 验证 active child 存在且可用
-2. 调用 child skill 生成文章
-3. 双写：
-   - baseline → `repo/state/baselines/<article_id>.md`
-   - visible draft → `<child-name>_Generated_Articles/<article_id>__<topic>.md`
-4. 生成 sidecar manifest（`.manifest/<article_id>.json`）
+1. **验证 active child**
+   - 确认 `.claude/skills/writer-<child-name>/SKILL.md` 存在且 frontmatter 中的 `name` 为 `writer-<child-name>`
+   - 确认 canonical repo 存在：`.claude/writing-factory/children/<child-name>/repo/`
+
+2. **准备文件结构与元数据**
+   - 运行 Bash：`python scripts/generate_article.py <child_name> "<topic>" --factory-dir .claude/writing-factory/children --project-root .`
+   - 解析脚本输出的 JSON manifest，获取 `article_id`、`baseline_path`、`visible_path`、`manifest_path`
+   - 脚本已自动创建 frontmatter + 占位骨架，并生成 sidecar manifest
+
+3. **加载 child skill 写作系统**
+   - Read `.claude/skills/writer-<child-name>/SKILL.md`
+   - Read `.claude/skills/writer-<child-name>/references/style-profile.md`
+   - Read `.claude/skills/writer-<child-name>/references/editorial-rules.md`
+   - Read `.claude/skills/writer-<child-name>/references/anti-patterns.md`
+   - Read `.claude/skills/writer-<child-name>/references/author-boundary.md`
+   - Read `.claude/skills/writer-<child-name>/references/examples.md`
+   - Read `.claude/skills/writer-<child-name>/assets/style-memory.json`
+
+4. **生成完整文章**
+   - 按照 child skill 的 Phase 1-6 写作流程生成文章正文
+   - 遵守所有 references 中的风格、规则、边界与反模式约束
+   - 文章必须是完整成品，不得输出占位符或模板文本
+
+5. **双写**
+   - **baseline**：用 Write 工具覆盖 `baseline_path` 指向的文件。保留原有 frontmatter，将正文替换为步骤 4 生成的完整文章。
+   - **visible draft**：用 Write 工具覆盖 `visible_path` 指向的文件。保留原有 frontmatter，将正文替换为与 baseline 相同的内容。
+   - 双写后重新计算 sha256，更新 manifest 中的 `baseline_sha` 和 `current_sha`
+
+6. **完成 manifest 与报告**
+   - 更新 sidecar manifest 的 `status` 为 `generated`
+   - 更新 canonical repo 中 `state/manifests/<article_id>.json`
+   - 向用户报告：visible draft 的完整路径，并提示用户可在此文件上直接编辑，完成后运行 `/writing-skill-factory learn <child-name>`
 
 ### learn-from-visible-edits
 

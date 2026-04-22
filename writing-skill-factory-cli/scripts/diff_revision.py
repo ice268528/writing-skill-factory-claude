@@ -12,6 +12,7 @@ import difflib
 import json
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 from factory_logging import setup_logger, LogContext
@@ -27,14 +28,20 @@ def _is_punctuation_only(old_text: str, new_text: str) -> bool:
 
 
 def _is_particle_only(old_text: str, new_text: str) -> bool:
-    """检测是否仅语气词/助词增删（如 了/的/呢/吧/啊）"""
+    """检测是否仅语气词/助词增删（如 了/的/呢/吧/啊）。
+    使用 Counter 比较字符频次，避免集合对称差忽略频次的问题。
+    """
     particles = set("的了呢吧啊嘛哦呀呗")  # 常见语气助词
-    old_chars = set(old_text)
-    new_chars = set(new_text)
-    diff = old_chars.symmetric_difference(new_chars)
-    if not diff:
+    old_chars = Counter(old_text)
+    new_chars = Counter(new_text)
+
+    # 收集所有出现频次有差异的字符
+    all_chars = set(old_chars.keys()) | set(new_chars.keys())
+    diff_chars = [c for c in all_chars if old_chars.get(c, 0) != new_chars.get(c, 0)]
+
+    if not diff_chars:
         return False
-    return all(c in particles for c in diff)
+    return all(c in particles for c in diff_chars)
 
 
 def _detect_paragraph_function(text: str) -> str:
@@ -72,6 +79,10 @@ def classify_change(old_text: str, new_text: str, context: str) -> dict:
       L2 Reusable Preference — 句式调整、用词偏好、连接方式变化，体现可迁移风格
       L3 Structural Rule — 段落功能改变、论点增删、结构重排、开头/结尾重写
     """
+    # 新增/删除整段属于结构性变化，强制 L3
+    if not old_text or not new_text:
+        return {"level": "L3", "type": "structural", "reason": "新增或删除整段内容"}
+
     old_len = len(old_text) if old_text else 0
     new_len = len(new_text) if new_text else 0
     delta = new_len - old_len
@@ -203,10 +214,23 @@ def diff_revision(child_name: str, article_id: str, factory_dir: str, project_ro
     ))
     diff_text = "".join(diff)
 
-    # 提取变更块并分类
+    # 提取变更块并分类（逐行解析以避免 diff 正文内含 @@ 时误分割）
     changes = []
-    hunks = re.split(r'@@ .* @@\n', diff_text)
-    for hunk in hunks[1:]:
+    hunk_lines: list[str] = []
+    current_hunk: list[str] = []
+    for line in diff_text.splitlines(keepends=True):
+        # 真正的 hunk header：以 "@@ " 开头且以 " @@" 结尾（diff 输出格式）
+        stripped = line.rstrip("\n\r")
+        if stripped.startswith("@@ ") and stripped.endswith(" @@") and not stripped.startswith(("+", "-")):
+            if current_hunk:
+                hunk_lines.append("".join(current_hunk))
+            current_hunk = []
+        else:
+            current_hunk.append(line)
+    if current_hunk:
+        hunk_lines.append("".join(current_hunk))
+
+    for hunk in hunk_lines:
         added = "".join([l[1:] for l in hunk.splitlines(keepends=True) if l.startswith("+") and not l.startswith("+++")])
         removed = "".join([l[1:] for l in hunk.splitlines(keepends=True) if l.startswith("-") and not l.startswith("---")])
         classification = classify_change(removed, added, hunk)

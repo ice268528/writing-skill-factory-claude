@@ -30,7 +30,28 @@ def rollback_child(child_name: str, version: str, factory_dir: str, skills_dir: 
 
     tag = f"v{version}"
 
-    # 检出指定 tag
+    # 1) 检测工作区未提交更改
+    try:
+        status_result = subprocess.run(
+            ["git", "status", "--short"],
+            cwd=repo_dir,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        uncommitted = [line for line in status_result.stdout.strip().split("\n") if line.strip()]
+        if uncommitted:
+            logger.warning("Uncommitted changes detected in %s: %d files", child_name, len(uncommitted))
+            return {
+                "status": "blocked",
+                "message": f"工作区存在 {len(uncommitted)} 个未提交更改。请先 commit 或 stash 后再 rollback。",
+                "uncommitted_files": uncommitted,
+            }
+    except subprocess.CalledProcessError as e:
+        logger.error("Failed to check git status: %s", e)
+        return {"status": "error", "message": f"无法检测工作区状态: {e}"}
+
+    # 2) 检出指定 tag
     try:
         subprocess.run(
             ["git", "checkout", tag, "--", "."],
@@ -87,12 +108,56 @@ def rollback_child(child_name: str, version: str, factory_dir: str, skills_dir: 
     with log_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
 
-    return {
+    result = {
         "status": "rolled_back",
         "child_name": child_name,
         "version": version,
         "published_to": str(dest_dir),
     }
+
+    # 3) rollback 后自动运行回归测试验证回滚结果
+    try:
+        test_proc = subprocess.run(
+            [sys.executable, str(Path(__file__).parent / "run_regression_tests.py"), child_name, "--factory-dir", str(factory_dir)],
+            capture_output=True,
+            text=True,
+        )
+        # 解析 stdout 中的 JSON summary（定位包含 "run_at" 的最外层 JSON 对象）
+        stdout = test_proc.stdout
+        marker = '"run_at"'
+        marker_pos = stdout.rfind(marker)
+        if marker_pos != -1:
+            start = stdout.rfind("{", 0, marker_pos)
+            # 从 start 开始找匹配的结束括号
+            end = -1
+            brace_count = 0
+            for i in range(start, len(stdout)):
+                if stdout[i] == "{":
+                    brace_count += 1
+                elif stdout[i] == "}":
+                    brace_count -= 1
+                    if brace_count == 0:
+                        end = i
+                        break
+            if start != -1 and end != -1 and end > start:
+                try:
+                    summary = json.loads(stdout[start:end + 1])
+                    result["regression_test"] = {
+                        "passed": summary.get("passed"),
+                        "total": summary.get("total"),
+                        "failed": summary.get("failed"),
+                    }
+                except json.JSONDecodeError as je:
+                    result["regression_test"] = {"error": f"JSON 解析失败: {je}"}
+            else:
+                result["regression_test"] = {"error": "无法定位回归测试 summary 的结束括号"}
+        else:
+            result["regression_test"] = {"error": "无法解析回归测试输出（未找到 run_at 标记）"}
+    except Exception as e:
+        logger.warning("Regression test after rollback failed: %s", e)
+        result["regression_test"] = {"error": str(e)}
+
+    return result
 
 
 def main() -> int:

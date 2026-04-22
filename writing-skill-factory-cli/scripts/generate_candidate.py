@@ -139,7 +139,16 @@ def generate_candidate(child_name: str, factory_dir: str) -> dict:
         elif event_type == "rollback":
             event_summaries.append(f"回滚到版本 {ev.get('version', 'unknown')}")
         else:
-            event_summaries.append(f"{event_type}: {json.dumps(ev, ensure_ascii=False)[:100]}")
+            # 对未知事件类型，提取关键字段生成可读摘要，避免截断 JSON
+            key_fields = []
+            if ev.get("article_id"):
+                key_fields.append(f"article={ev['article_id']}")
+            if ev.get("version"):
+                key_fields.append(f"version={ev['version']}")
+            if ev.get("promoted_count") is not None:
+                key_fields.append(f"promoted={ev['promoted_count']}")
+            summary_text = ", ".join(key_fields) if key_fields else "未解析事件"
+            event_summaries.append(f"{event_type}: {summary_text}")
 
     change_summary = "；".join(event_summaries) if event_summaries else "基于学习迭代自动生成的候选版本"
 

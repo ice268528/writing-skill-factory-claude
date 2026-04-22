@@ -146,18 +146,184 @@ def test_diff_classification() -> dict:
 
 
 def test_promote_dedup() -> dict:
-    """验证 promote_rules 对重复 description 的累加逻辑。"""
-    # 由于 promote_rules 依赖文件系统，我们通过直接调用内部函数验证
+    """验证 promote_rules 对重复 description 的累加逻辑，且不同描述不被合并。"""
+    import tempfile
     promote_mod = _import_module("promote_rules")
-    # _abstract_rule_description 是公开函数
-    desc1 = promote_mod._abstract_rule_description("L2", "reusable_preference", " old ", " new ", "拆分")
-    desc2 = promote_mod._abstract_rule_description("L2", "reusable_preference", " old2 ", " new2 ", "拆分")
-    # 两次相同 reason/level 的抽象应产生可复用的描述
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        factory_dir = tmpdir
+        child_name = "test_dedup_child"
+        article_id = "art-001"
+
+        repo_dir = Path(factory_dir) / child_name / "repo"
+        state_dir = repo_dir / "state"
+        revisions_dir = state_dir / "revisions"
+        skill_dir = repo_dir / "skill"
+        assets_dir = skill_dir / "assets"
+        for d in [revisions_dir, assets_dir, skill_dir / "references"]:
+            d.mkdir(parents=True, exist_ok=True)
+
+        memory = {
+            "voice_traits": [], "punctuation_preferences": [], "paragraph_formulas": [],
+            "narrative_moves": [], "editorial_heuristics": [], "author_boundary_rules": [],
+            "anti_patterns": [], "confidence_buckets": {"candidate": [], "probation": [], "active": []}
+        }
+        (assets_dir / "style-memory.json").write_text(json.dumps(memory, ensure_ascii=False, indent=2), encoding="utf-8")
+        (skill_dir / "references" / "anti-patterns.md").write_text("# Anti-patterns\n", encoding="utf-8")
+
+        # 2 个相同描述的 change -> 应合并为 1 条 probation
+        # 注意：added_sents > removed_sents 才会触发"拆分"描述
+        revision = {
+            "changes": [
+                {"classification": {"level": "L2", "type": "reusable_preference", "reason": "拆分"},
+                 "added": "第一句。第二句。", "removed": "这是一个很长的句子，包含很多内容。"},
+                {"classification": {"level": "L2", "type": "reusable_preference", "reason": "拆分"},
+                 "added": "新短句一。新短句二。", "removed": "旧长句，包含很多内容。"},
+            ]
+        }
+        (revisions_dir / f"{article_id}.json").write_text(json.dumps(revision, ensure_ascii=False), encoding="utf-8")
+        promote_mod.promote_rules(child_name, article_id, factory_dir)
+
+        updated = json.loads((assets_dir / "style-memory.json").read_text(encoding="utf-8"))
+        probations = updated["confidence_buckets"]["probation"]
+        dedup_ok = len(probations) == 1 and probations[0]["evidence_count"] == 2
+
+        # 不同描述的 change -> 不应合并
+        # removed_sents > added_sents 才会触发"合并"描述
+        article_id_2 = "art-002"
+        revision2 = {
+            "changes": [
+                {"classification": {"level": "L2", "type": "reusable_preference", "reason": "合并"},
+                 "added": "合并后的长句。", "removed": "短句一。短句二。"},
+            ]
+        }
+        (revisions_dir / f"{article_id_2}.json").write_text(json.dumps(revision2, ensure_ascii=False), encoding="utf-8")
+        promote_mod.promote_rules(child_name, article_id_2, factory_dir)
+
+        updated2 = json.loads((assets_dir / "style-memory.json").read_text(encoding="utf-8"))
+        probations2 = updated2["confidence_buckets"]["probation"]
+        candidates2 = updated2["confidence_buckets"]["candidate"]
+
+        # 应有 1 条 probation（evidence=2）和 1 条 candidate（evidence=1）
+        separate_ok = len(probations2) == 1 and len(candidates2) == 1
+
+        return {
+            "name": "promote_dedup",
+            "passed": dedup_ok and separate_ok,
+            "dedup_ok": dedup_ok,
+            "separate_ok": separate_ok,
+            "probation_count": len(probations2),
+            "candidate_count": len(candidates2),
+        }
+
+
+def test_promote_cross_article_upgrade() -> dict:
+    """验证同一 article_id 的 3 个同类 change 最多只能将规则升至 probation，不能跳到 active。"""
+    import tempfile
+    promote_mod = _import_module("promote_rules")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        factory_dir = tmpdir
+        child_name = "test_cross_child"
+        article_id = "art-001"
+
+        repo_dir = Path(factory_dir) / child_name / "repo"
+        state_dir = repo_dir / "state"
+        revisions_dir = state_dir / "revisions"
+        skill_dir = repo_dir / "skill"
+        assets_dir = skill_dir / "assets"
+        for d in [revisions_dir, assets_dir, skill_dir / "references"]:
+            d.mkdir(parents=True, exist_ok=True)
+
+        desc = "偏好将长句拆分为短句，提升节奏感"
+        memory = {
+            "voice_traits": [], "punctuation_preferences": [], "paragraph_formulas": [],
+            "narrative_moves": [], "editorial_heuristics": [], "author_boundary_rules": [],
+            "anti_patterns": [], "confidence_buckets": {
+                "candidate": [],
+                "probation": [{"rule_id": "r1", "rule_type": "reusable_preference", "description": desc,
+                               "evidence_count": 2, "confidence": "probation", "source_articles": [article_id],
+                               "transferability": "medium", "boundary_note": ""}],
+                "active": []
+            }
+        }
+        (assets_dir / "style-memory.json").write_text(json.dumps(memory, ensure_ascii=False, indent=2), encoding="utf-8")
+        (skill_dir / "references" / "anti-patterns.md").write_text("# Anti-patterns\n", encoding="utf-8")
+
+        # 同一 article_id 再增加 1 个 evidence -> evidence_count=3
+        # 必须保证 _abstract_rule_description 生成与初始规则相同的描述
+        revision = {
+            "changes": [
+                {"classification": {"level": "L2", "type": "reusable_preference", "reason": "拆分"},
+                 "added": "新短句一。新短句二。", "removed": "旧长句，包含很多内容。"},
+            ]
+        }
+        (revisions_dir / f"{article_id}.json").write_text(json.dumps(revision, ensure_ascii=False), encoding="utf-8")
+        promote_mod.promote_rules(child_name, article_id, factory_dir)
+
+        updated = json.loads((assets_dir / "style-memory.json").read_text(encoding="utf-8"))
+        probations = updated["confidence_buckets"]["probation"]
+        active = updated["confidence_buckets"]["active"]
+
+        # 必须仍为 probation，不能跳到 active
+        stayed_probation = len(probations) == 1 and len(active) == 0
+        evidence_count_ok = probations[0]["evidence_count"] == 3 if probations else False
+
+        return {
+            "name": "promote_cross_article_upgrade",
+            "passed": stayed_probation and evidence_count_ok,
+            "stayed_probation": stayed_probation,
+            "evidence_count": probations[0]["evidence_count"] if probations else None,
+            "source_articles": probations[0].get("source_articles") if probations else None,
+        }
+
+
+def test_diff_empty_text() -> dict:
+    """验证 old_text=\"\" 或 new_text=\"\" 时强制返回 L3。"""
+    diff_mod = _import_module("diff_revision")
+    cases = [
+        ("", "全新段落内容", "L3", "empty_old"),
+        ("原有段落内容", "", "L3", "empty_new"),
+    ]
+    passed = 0
+    failed = []
+    for old, new, expected, hint in cases:
+        result = diff_mod.classify_change(old, new, "")
+        level = result.get("level")
+        if level == expected:
+            passed += 1
+        else:
+            failed.append({"hint": hint, "expected": expected, "actual": level, "reason": result.get("reason")})
     return {
-        "name": "promote_dedup",
-        "passed": desc1 == desc2 or ("拆分" in desc1 and "拆分" in desc2),
-        "desc1": desc1,
-        "desc2": desc2,
+        "name": "diff_empty_text",
+        "passed": not failed,
+        "summary": f"{passed}/{len(cases)} passed",
+        "failed": failed,
+    }
+
+
+def test_diff_particle_frequency() -> dict:
+    """验证仅字符频次变化的助词修改返回 L1（Counter 逻辑）。"""
+    diff_mod = _import_module("diff_revision")
+    cases = [
+        # 纯助词频次变化，similarity < 0.92，必须靠 _is_particle_only 捕获
+        ("的的的的的的的的", "的的的的的", "L1", "particle_frequency_decrease"),
+        ("这是一个的的的句子", "这是一个的句子", "L1", "particle_in_sentence"),
+    ]
+    passed = 0
+    failed = []
+    for old, new, expected, hint in cases:
+        result = diff_mod.classify_change(old, new, "")
+        level = result.get("level")
+        if level == expected:
+            passed += 1
+        else:
+            failed.append({"hint": hint, "expected": expected, "actual": level, "reason": result.get("reason")})
+    return {
+        "name": "diff_particle_frequency",
+        "passed": not failed,
+        "summary": f"{passed}/{len(cases)} passed",
+        "failed": failed,
     }
 
 
@@ -190,6 +356,84 @@ def test_eval_score_range(child_name: str, factory_dir: str) -> dict:
     }
 
 
+def test_eval_sensitivity() -> dict:
+    """验证 eval_candidate 的 style_fit 对 voice_traits 变化具有灵敏度。"""
+    eval_mod = _import_module("eval_candidate")
+
+    base_memory = {
+        "voice_traits": [
+            {"trait": "sentence_length", "value": 25},
+            {"trait": "formality", "value": 3},
+        ],
+        "punctuation_preferences": [
+            {"mark": "，", "density_per_1k": 45},
+        ],
+        "paragraph_formulas": ["formula1"],
+        "narrative_moves": ["move1"],
+    }
+
+    # 完全相同的 memory -> 应得高分
+    same_memory = json.loads(json.dumps(base_memory))
+    score_same = eval_mod.compute_style_fit(base_memory, same_memory)
+
+    # 大幅修改 voice_traits -> 分数必须下降
+    changed_memory = json.loads(json.dumps(base_memory))
+    changed_memory["voice_traits"][0]["value"] = 80
+    score_changed = eval_mod.compute_style_fit(base_memory, changed_memory)
+
+    sensitive = score_changed < score_same
+
+    # 删除关键字段 -> 分数必须显著下降
+    incomplete_memory = json.loads(json.dumps(base_memory))
+    incomplete_memory["voice_traits"] = []
+    score_incomplete = eval_mod.compute_style_fit(base_memory, incomplete_memory)
+    incomplete_low = score_incomplete <= 1.5
+
+    return {
+        "name": "eval_sensitivity",
+        "passed": sensitive and incomplete_low,
+        "sensitive": sensitive,
+        "score_same": score_same,
+        "score_changed": score_changed,
+        "score_incomplete": score_incomplete,
+    }
+
+
+def test_show_status_semver() -> dict:
+    """验证 show_status 使用 semver 正确排序版本号（1.10.0 > 1.2.0）。"""
+    import tempfile
+    status_mod = _import_module("show_status")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        factory_dir = tmpdir
+        child_name = "test_semver_child"
+
+        repo_dir = Path(factory_dir) / child_name / "repo"
+        state_dir = repo_dir / "state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+
+        release_index = {
+            "releases": [
+                {"version": "1.0.2", "tag": "v1.0.2", "created_at": "2026-04-20T00:00:00Z"},
+                {"version": "1.0.10", "tag": "v1.0.10", "created_at": "2026-04-21T00:00:00Z"},
+                {"version": "1.2.0", "tag": "v1.2.0", "created_at": "2026-04-22T00:00:00Z"},
+            ],
+            "active_version": "1.0.10"
+        }
+        (state_dir / "release-index.json").write_text(json.dumps(release_index), encoding="utf-8")
+
+        status = status_mod.show_status(child_name, factory_dir)
+        latest = status["sections"]["release"]["latest_version"]
+
+        correct = latest == "1.2.0"
+
+        return {
+            "name": "show_status_semver",
+            "passed": correct,
+            "latest_version": latest,
+        }
+
+
 def test_pipeline_dry_run(child_name: str, factory_dir: str, project_root: str) -> dict:
     """验证 learn_pipeline --dry-run 不抛出异常。"""
     pipeline_mod = _import_module("learn_pipeline")
@@ -206,6 +450,75 @@ def test_pipeline_dry_run(child_name: str, factory_dir: str, project_root: str) 
     except Exception as e:
         return {"name": "pipeline_dry_run", "passed": False, "error": str(e), "traceback": traceback.format_exc()}
     return {"name": "pipeline_dry_run", "passed": ok}
+
+
+def test_baseline_sha_alignment() -> dict:
+    """验证 sync_visible_edits 能正确检测并更新 baseline_sha 与实际文件内容不一致的情况。"""
+    import tempfile
+    sync_mod = _import_module("sync_visible_edits")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        factory_dir = Path(tmpdir) / "factory"
+        project_root = Path(tmpdir) / "root"
+        child_name = "test_sha_child"
+
+        repo_dir = factory_dir / child_name / "repo"
+        state_dir = repo_dir / "state"
+        baselines_dir = state_dir / "baselines"
+        manifests_dir = state_dir / "manifests"
+        articles_dir = project_root / f"{child_name}_Generated_Articles"
+        manifest_dir = articles_dir / ".manifest"
+
+        for d in [baselines_dir, manifests_dir, articles_dir, manifest_dir]:
+            d.mkdir(parents=True, exist_ok=True)
+
+        article_id = "2026-04-22-001"
+        topic_slug = "test-topic"
+
+        # 创建初始 baseline
+        baseline_content = "初始 baseline 内容"
+        baseline_file = baselines_dir / f"{article_id}.md"
+        baseline_file.write_text(baseline_content, encoding="utf-8")
+        initial_baseline_sha = sync_mod.compute_sha(baseline_content)
+
+        # 创建 visible draft
+        visible_content = f"article_id: {article_id}\n\nvisible content"
+        visible_file = articles_dir / f"{article_id}__{topic_slug}.md"
+        visible_file.write_text(visible_content, encoding="utf-8")
+        visible_sha = sync_mod.compute_sha(visible_content)
+
+        # 创建 manifest（baseline_sha 为初始值）
+        manifest = {
+            "article_id": article_id,
+            "child_name": f"writer-{child_name}",
+            "child_version": "1.0.0",
+            "baseline_sha": initial_baseline_sha,
+            "current_sha": visible_sha,
+            "topic": topic_slug,
+            "status": "drafted",
+        }
+        state_manifest = manifests_dir / f"{article_id}.json"
+        state_manifest.write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+        (manifest_dir / f"{article_id}.json").write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+
+        # 修改 baseline 内容（模拟 Claude 填充正文）
+        new_baseline_content = "这是 Claude 填充后的完整 baseline 内容"
+        baseline_file.write_text(new_baseline_content, encoding="utf-8")
+        expected_sha = sync_mod.compute_sha(new_baseline_content)
+
+        # 运行 sync
+        sync_mod.sync_visible_edits(child_name, str(factory_dir), str(project_root))
+
+        # 检查 manifest 是否已更新
+        updated_manifest = json.loads(state_manifest.read_text(encoding="utf-8"))
+        aligned = updated_manifest.get("baseline_sha") == expected_sha
+
+        return {
+            "name": "baseline_sha_alignment",
+            "passed": aligned,
+            "expected_sha": expected_sha,
+            "actual_sha": updated_manifest.get("baseline_sha"),
+        }
 
 
 def test_manifest_integrity(child_name: str, factory_dir: str) -> dict:
@@ -239,10 +552,16 @@ def run_all(child_name: str, factory_dir: str, project_root: str) -> dict:
         lambda: test_style_memory_schema(child_name, factory_dir),
         lambda: test_rules_validity(child_name, factory_dir),
         lambda: test_diff_classification(),
+        lambda: test_diff_empty_text(),
+        lambda: test_diff_particle_frequency(),
         lambda: test_promote_dedup(),
+        lambda: test_promote_cross_article_upgrade(),
         lambda: test_eval_score_range(child_name, factory_dir),
+        lambda: test_eval_sensitivity(),
         lambda: test_pipeline_dry_run(child_name, factory_dir, project_root),
         lambda: test_manifest_integrity(child_name, factory_dir),
+        lambda: test_baseline_sha_alignment(),
+        lambda: test_show_status_semver(),
     ]
 
     results = []

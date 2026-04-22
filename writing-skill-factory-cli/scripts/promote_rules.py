@@ -8,6 +8,7 @@ promote_rules.py
 """
 
 import argparse
+import difflib
 import json
 import re
 import sys
@@ -15,6 +16,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from factory_logging import setup_logger, LogContext
+
+
+def _description_similarity(desc1: str, desc2: str) -> float:
+    """计算两条规则描述的编辑相似度（SequenceMatcher ratio）。"""
+    if desc1 == desc2:
+        return 1.0
+    return difflib.SequenceMatcher(None, desc1, desc2).ratio()
+
+
+# 去重相似度阈值：只有相似度 >= 0.85 才视为同一规则
+_DEDUP_SIMILARITY_THRESHOLD = 0.85
 
 
 def _abstract_rule_description(level: str, rule_type: str, removed: str, added: str, reason: str) -> str:
@@ -141,26 +153,31 @@ def promote_rules(child_name: str, article_id: str, factory_dir: str) -> dict:
         desc = _abstract_rule_description(level, rule_type, removed, added, reason)
         rule_id = f"{rule_type}-{article_id}-{len(promoted)+1:03d}"
 
-        # 查找是否已有同类规则
+        # 查找是否已有同类规则（严格去重：rule_type 相同且描述完全相等或高度相似）
         existing = None
         for bucket in ["active", "probation", "candidate"]:
             for r in memory["confidence_buckets"].get(bucket, []):
-                if r.get("description") == desc or r.get("rule_type") == rule_type and desc[:20] in r.get("description", ""):
-                    existing = r
-                    break
+                if r.get("rule_type") == rule_type:
+                    if r.get("description") == desc or _description_similarity(r.get("description", ""), desc) >= _DEDUP_SIMILARITY_THRESHOLD:
+                        existing = r
+                        break
             if existing:
                 break
 
         if existing:
             existing["evidence_count"] = existing.get("evidence_count", 0) + 1
-            existing["source_articles"] = list(set(existing.get("source_articles", []) + [article_id]))
-            # 升级
+            source_articles = set(existing.get("source_articles", []))
+            source_articles.add(article_id)
+            existing["source_articles"] = list(source_articles)
+            # 升级逻辑
+            # candidate -> probation：evidence_count >= 2（可在同一 article_id 内发生）
             if existing["confidence"] == "candidate" and existing["evidence_count"] >= 2:
                 existing["confidence"] = "probation"
                 memory["confidence_buckets"]["candidate"].remove(existing)
                 memory["confidence_buckets"]["probation"].append(existing)
                 promoted.append({"rule_id": existing["rule_id"], "new_confidence": "probation"})
-            elif existing["confidence"] == "probation" and existing["evidence_count"] >= 3:
+            # probation -> active：必须 evidence_count >= 3 且来自至少 2 个不同 article_id
+            elif existing["confidence"] == "probation" and existing["evidence_count"] >= 3 and len(existing["source_articles"]) >= 2:
                 existing["confidence"] = "active"
                 memory["confidence_buckets"]["probation"].remove(existing)
                 memory["confidence_buckets"]["active"].append(existing)

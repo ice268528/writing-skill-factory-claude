@@ -12,6 +12,7 @@ import hashlib
 import json
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from factory_logging import setup_logger, LogContext
@@ -39,6 +40,16 @@ def sync_visible_edits(child_name: str, factory_dir: str, project_root: str) -> 
 
     if not articles_dir.exists():
         return {"status": "no_visible_dir", "changes": []}
+
+    # 读取当前 active version，用于同步 manifest 中的 child_version
+    active_version = "unknown"
+    release_index_path = state_dir / "release-index.json"
+    if release_index_path.exists():
+        try:
+            release_index = json.loads(release_index_path.read_text(encoding="utf-8"))
+            active_version = release_index.get("active_version", "unknown")
+        except Exception:
+            pass
 
     changes = []
 
@@ -75,16 +86,21 @@ def sync_visible_edits(child_name: str, factory_dir: str, project_root: str) -> 
         if not state_manifest.exists():
             # 新增 visible 稿
             changes.append({"action": "add", "article_id": article_id, "file": str(vf.name)})
-            # 创建对应的 manifest
-            now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+            # 创建对应的 manifest（若 baseline 已存在则计算其 sha，避免空字符串）
+            now = datetime.now(timezone.utc)
+            baseline_file = baselines_dir / f"{article_id}.md"
+            baseline_sha = compute_sha(baseline_file.read_text(encoding="utf-8")) if baseline_file.exists() else ""
+            current_sha = compute_sha(content)
             manifest = {
                 "article_id": article_id,
                 "child_name": f"writer-{child_name}",
-                "child_version": "unknown",
-                "baseline_sha": "",
-                "created_at": now,
+                "child_version": active_version,
+                "baseline_sha": baseline_sha,
+                "current_sha": current_sha,
+                "created_at": now.isoformat(),
                 "topic": vf.stem.split("__")[-1] if "__" in vf.stem else "unknown",
                 "status": "user_added",
+                "baseline_path": str(baseline_file.relative_to(root)) if baseline_file.exists() else None,
                 "visible_path": str(vf.relative_to(root)),
             }
             manifest_dir.mkdir(parents=True, exist_ok=True)
@@ -92,12 +108,25 @@ def sync_visible_edits(child_name: str, factory_dir: str, project_root: str) -> 
             state_manifest.parent.mkdir(parents=True, exist_ok=True)
             state_manifest.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         else:
-            # 检查是否修改
+            # 检查是否修改，并强制对齐 baseline_sha
             manifest = json.loads(state_manifest.read_text(encoding="utf-8"))
             current_sha = compute_sha(content)
-            if manifest.get("current_sha") and manifest["current_sha"] != current_sha:
-                changes.append({"action": "edit", "article_id": article_id, "file": str(vf.name)})
+
+            # 同步更新 baseline_sha（Claude 填充正文后 baseline 内容可能已变）
+            baseline_file = baselines_dir / f"{article_id}.md"
+            baseline_sha_updated = False
+            if baseline_file.exists():
+                actual_baseline_sha = compute_sha(baseline_file.read_text(encoding="utf-8"))
+                if manifest.get("baseline_sha") != actual_baseline_sha:
+                    manifest["baseline_sha"] = actual_baseline_sha
+                    baseline_sha_updated = True
+
+            visible_changed = manifest.get("current_sha") and manifest["current_sha"] != current_sha
+            if visible_changed or baseline_sha_updated:
+                changes.append({"action": "edit", "article_id": article_id, "file": str(vf.name),
+                                "baseline_sha_updated": baseline_sha_updated, "visible_changed": visible_changed})
             manifest["current_sha"] = current_sha
+            manifest["child_version"] = active_version
             state_manifest.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
     return {"status": "synced", "changes": changes}

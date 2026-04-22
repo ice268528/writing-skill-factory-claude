@@ -9,12 +9,29 @@ show_status.py
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 from factory_logging import LogContext, setup_logger
 
 logger = setup_logger("show_status")
+
+
+def _parse_semver(version_str: str) -> tuple[int, ...]:
+    """将版本号字符串解析为可比较的整数元组。"""
+    if not version_str:
+        return (0, 0, 0)
+    cleaned = version_str.strip().lstrip("vV")
+    parts = cleaned.split(".")
+    nums = []
+    for p in parts:
+        m = re.match(r'(\d+)', p)
+        nums.append(int(m.group(1)) if m else 0)
+    # 补齐到至少 3 位
+    while len(nums) < 3:
+        nums.append(0)
+    return tuple(nums)
 
 
 def show_status(child_name: str, factory_dir: str) -> dict:
@@ -35,7 +52,7 @@ def show_status(child_name: str, factory_dir: str) -> dict:
     if release_index_path.exists():
         release_index = json.loads(release_index_path.read_text(encoding="utf-8"))
         releases = release_index.get("releases", [])
-        latest = max(releases, key=lambda r: r.get("version", "")) if releases else None
+        latest = max(releases, key=lambda r: _parse_semver(r.get("version", ""))) if releases else None
         status["sections"]["release"] = {
             "latest_version": latest.get("version") if latest else None,
             "latest_tag": latest.get("tag") if latest else None,
@@ -49,7 +66,10 @@ def show_status(child_name: str, factory_dir: str) -> dict:
     # 2. 候选版本 (candidates)
     # --------------------------------------------------------------
     candidates_dir = state_dir / "candidates"
-    candidate_files = sorted(candidates_dir.glob("*.json")) if candidates_dir.exists() else []
+    if candidates_dir.exists():
+        candidate_files = sorted(candidates_dir.glob("*.json"), key=lambda p: _parse_semver(p.stem))
+    else:
+        candidate_files = []
     status["sections"]["candidates"] = {
         "count": len(candidate_files),
         "latest": None,
@@ -58,7 +78,7 @@ def show_status(child_name: str, factory_dir: str) -> dict:
         latest_candidate = json.loads(candidate_files[-1].read_text(encoding="utf-8"))
         status["sections"]["candidates"]["latest"] = {
             "version": latest_candidate.get("version"),
-            "based_on": latest_candidate.get("based_on"),
+            "parent_version": latest_candidate.get("parent_version"),
             "created_at": latest_candidate.get("created_at"),
         }
 
@@ -151,7 +171,7 @@ def print_status(status: dict) -> None:
     print(f"\n[Candidates]")
     print(f"   候选数量: {cand.get('count', 0)}")
     if cand.get("latest"):
-        print(f"   最新候选: v{cand['latest']['version']} (基于 {cand['latest']['based_on']})")
+        print(f"   最新候选: v{cand['latest']['version']} (基于 {cand['latest']['parent_version']})")
 
     rules = sections.get("rules", {})
     print(f"\n[Rules]")

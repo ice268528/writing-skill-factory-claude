@@ -65,50 +65,84 @@ def extract_structural_patterns(texts: List[str]) -> Dict:
     return patterns
 
 
+def _token_density(text: str, tokens: List[str]) -> float:
+    """计算给定 token 在文本中的密度（每千字出现次数）"""
+    total_chars = len(text)
+    if total_chars == 0:
+        return 0.0
+    count = sum(len(re.findall(re.escape(tok), text)) for tok in tokens)
+    return count / total_chars * 1000
+
+
 def infer_mindset(texts: List[str]) -> List[Dict]:
-    """推断心智模型"""
+    """推断心智模型（引入比例阈值与多维度交叉验证）"""
     all_text = "\n".join(texts)
     heuristics = []
+    total_chars = len(all_text)
 
-    # 简单启发式推断
-    if "我觉得" in all_text or "我认为" in all_text or "在我看来" in all_text:
+    # D1: 第一人称观点表达 —— 需第一人称占比 > 30% 且存在观点标记
+    first_person = len(re.findall(r'我|我们|我的|咱们', all_text))
+    total_person = len(re.findall(r'我|我们|我的|咱们|你|你们|您的|他|她|它|他们|她们|它们|其|某人', all_text))
+    first_person_ratio = first_person / total_person if total_person else 0
+    opinion_markers = ["我觉得", "我认为", "在我看来", "我的看法是", "我坚信", "我判断"]
+    has_opinion_marker = any(m in all_text for m in opinion_markers)
+    if first_person_ratio > 0.30 and has_opinion_marker:
         heuristics.append({
             "type": "mindset",
-            "description": "倾向于明确表达个人观点或立场",
+            "description": "倾向于以第一人称明确表达个人观点或立场",
             "evidence_count": len(texts),
             "confidence": "active",
             "transferability": "high",
-            "boundary_note": "适用于评论型、观点型文章"
+            "boundary_note": "适用于评论型、观点型文章",
+            "metrics": {"first_person_ratio": round(first_person_ratio, 2)}
         })
 
-    if "但是" in all_text or "然而" in all_text or "不过" in all_text:
+    # D2: 转折思辨 —— 需转折词密度 > 2/千字 且 段落中存在正反论证结构
+    contrast_tokens = ["但是", "然而", "不过", "可是", "却", "相反", "反观"]
+    contrast_density = _token_density(all_text, contrast_tokens)
+    has_contrast_structure = bool(re.search(r'(?:虽然|尽管|诚然|固然).*?(?:但是|然而|不过|可是|却)', all_text))
+    if contrast_density > 2.0 and has_contrast_structure:
         heuristics.append({
             "type": "mindset",
-            "description": "习惯在论述中呈现对立面或转折",
+            "description": "习惯在论述中呈现对立面或转折，具备思辨结构",
             "evidence_count": len(texts),
             "confidence": "active",
             "transferability": "high",
-            "boundary_note": "适用于分析型、思辨型文章"
+            "boundary_note": "适用于分析型、思辨型文章",
+            "metrics": {"contrast_density_per_1k": round(contrast_density, 2)}
         })
 
-    if "比如" in all_text or "例如" in all_text or "像" in all_text:
+    # D3: 案例支撑 —— 需案例词密度 > 1/千字 且 案例句占比 > 15%
+    case_tokens = ["比如", "例如", "举个例子", "像", "正如", "以", "为例"]
+    case_density = _token_density(all_text, case_tokens)
+    # 粗略统计含案例标记的句子占比
+    sentences = re.split(r'[。！？\n]', all_text)
+    case_sentences = sum(1 for s in sentences if any(t in s for t in case_tokens))
+    case_ratio = case_sentences / len(sentences) if sentences else 0
+    if case_density > 1.0 and case_ratio > 0.15:
         heuristics.append({
             "type": "heuristic",
-            "description": "善用具体案例支撑抽象观点",
+            "description": "善用具体案例支撑抽象观点，案例密度显著",
             "evidence_count": len(texts),
             "confidence": "active",
             "transferability": "high",
-            "boundary_note": "通用"
+            "boundary_note": "通用",
+            "metrics": {"case_density_per_1k": round(case_density, 2), "case_sentence_ratio": round(case_ratio, 2)}
         })
 
-    if "?>" in all_text or "不一定" in all_text or "可能" in all_text or "也许" in all_text:
+    # D4: 不确定性表达 —— 需不确定词密度 > 1/千字 且 存在多重可能性表述
+    uncertainty_tokens = ["不一定", "可能", "也许", "或许", "未必", "大概", "某种程度上", "难以确定"]
+    uncertainty_density = _token_density(all_text, uncertainty_tokens)
+    has_multiple_possibilities = bool(re.search(r'(?:可能|也许|或许|不一定).*?(?:也可能|或者|另一种|另一方面)', all_text))
+    if uncertainty_density > 1.0 and has_multiple_possibilities:
         heuristics.append({
             "type": "mindset",
-            "description": "表达中保留不确定性，避免绝对化判断",
+            "description": "表达中保留不确定性，呈现多重可能性而非绝对判断",
             "evidence_count": len(texts),
             "confidence": "active",
             "transferability": "medium",
-            "boundary_note": "适用于探讨型、非结论性主题"
+            "boundary_note": "适用于探讨型、非结论性主题",
+            "metrics": {"uncertainty_density_per_1k": round(uncertainty_density, 2)}
         })
 
     return heuristics
