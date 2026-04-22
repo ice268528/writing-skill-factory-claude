@@ -247,8 +247,12 @@ Pipeline 会自动完成：
 
 关于数据流、文件职责与版本策略的深入说明，请参阅：
 
-- [`references/architecture.md`](references/architecture.md)
-- [`references/version-policy.md`](references/version-policy.md)
+- [`references/architecture.md`](writing-skill-factory-claude/references/architecture.md)
+- [`references/version-policy.md`](writing-skill-factory-claude/references/version-policy.md)
+
+## 作者
+
+- **ice268528** — 创建者与维护者
 
 ## License
 

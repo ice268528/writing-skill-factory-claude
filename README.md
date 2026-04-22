@@ -247,8 +247,12 @@ Shows releases, candidates, rule counts, learning history, and latest evals.
 
 For a deep dive into data flows, file responsibilities, and versioning policies, see:
 
-- [`references/architecture.md`](references/architecture.md)
-- [`references/version-policy.md`](references/version-policy.md)
+- [`references/architecture.md`](writing-skill-factory-claude/references/architecture.md)
+- [`references/version-policy.md`](writing-skill-factory-claude/references/version-policy.md)
+
+## Authors
+
+- **ice268528** — Creator & maintainer
 
 ## License
 
